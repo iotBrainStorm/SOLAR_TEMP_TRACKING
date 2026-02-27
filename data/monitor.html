@@ -227,25 +227,53 @@
       }
 
       function updateDashboard() {
-        let outsideTemp = parseFloat(random(20, 45, 1));
-        let solarTemp = parseFloat(random(30, 80, 1));
-        let humidity = parseFloat(random(20, 95, 1));
-        let sunPercent = parseFloat(random(0, 100, 0));
-        let lux = parseFloat(random(500, 90000, 0));
+        // Try to fetch live data from ESP32 endpoint
+        fetch("/sensor.json")
+          .then((res) => {
+            if (!res.ok) throw new Error("no-json");
+            return res.json();
+          })
+          .then((data) => {
+            let outside = parseFloat(data.ahtTemp);
+            let solar = parseFloat(data.ntcTemp);
+            let hum = parseFloat(data.humidity);
+            let sunPercent = parseFloat(random(0, 100, 0));
+            let lux = parseFloat(random(500, 90000, 0));
 
-        // Set values
-        setValue("outsideTemp", outsideTemp, "°C");
-        setValue("solarTemp", solarTemp, "°C");
-        setValue("humidity", humidity, "%");
-        setValue("sunPercent", sunPercent, "%");
-        setValue("luxValue", lux, "lx");
+            setValue("outsideTemp", outside, "°C");
+            setValue("solarTemp", solar, "°C");
+            setValue("humidity", hum, "%");
+            setValue("sunPercent", sunPercent, "%");
+            setValue("luxValue", lux, "lx");
 
-        // Apply dynamic colors
-        colorOutsideTemp(outsideTemp);
-        colorSolarTemp(solarTemp);
-        colorHumidity(humidity);
-        colorSun(sunPercent);
-        colorLux(lux);
+            colorOutsideTemp(outside);
+            colorSolarTemp(solar);
+            colorHumidity(hum);
+            colorSun(sunPercent);
+            colorLux(lux);
+          })
+          .catch(() => {
+            // Fallback to random values when endpoint unavailable
+            let ahtTemp = parseFloat(random(20, 45, 1));
+            let ntcTemp = parseFloat(random(30, 80, 1));
+            let humidity = parseFloat(random(20, 95, 1));
+            let sunPercent = parseFloat(random(0, 100, 0));
+            let lux = parseFloat(random(500, 90000, 0));
+
+            // Set values
+            setValue("outsideTemp", ahtTemp, "°C");
+            setValue("solarTemp", ntcTemp, "°C");
+            setValue("humidity", humidity, "%");
+            setValue("sunPercent", sunPercent, "%");
+            setValue("luxValue", lux, "lx");
+
+            // Apply dynamic colors
+            colorOutsideTemp(ahtTemp);
+            colorSolarTemp(ntcTemp);
+            colorHumidity(humidity);
+            colorSun(sunPercent);
+            colorLux(lux);
+          });
       }
 
       function setValue(id, value, unit) {

@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include <WiFi.h>
+#include <AsyncTCP.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 #include <HTTPClient.h> // Node-Red
@@ -29,6 +30,10 @@
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 Adafruit_AHT10 aht;
+
+// -- Web Server
+AsyncWebServer server(80);
+bool webServerStarted = false;
 
 // -- Sensor Values Storage
 float ntcTemp = 0.0;
@@ -222,6 +227,178 @@ void configDateTime()
   }
 }
 
+//////////////////////   TIME SETUP   //////////////////////
+
+void setupWebServer()
+{
+  if (webServerStarted)
+    return; // Already started
+
+  Serial.println("Setting up web server...");
+
+  // Root route - serves monitor.html
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SPIFFS, "/monitor.html", "text/html"); });
+
+  // Specific routes for each HTML page
+  server.on("/monitor.html", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SPIFFS, "/monitor.html", "text/html"); });
+
+  server.on("/config.html", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SPIFFS, "/config.html", "text/html"); });
+
+  // CSS and other static files
+  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SPIFFS, "/style.css", "text/css"); });
+
+  // Sensor JSON endpoint for live data (optional)
+  server.on("/sensor.json", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+    StaticJsonDocument<200> doc;
+    doc["ntcTemp"] = String(ntcTemp, 2);
+    doc["ahtTemp"] = String(ahtTemp, 2);
+    doc["humidity"] = String(humidity, 2);
+    String resp;
+    serializeJson(doc, resp);
+    request->send(200, "application/json", resp); });
+
+  // Log and try to serve any other requested static file from SPIFFS
+  server.onNotFound([](AsyncWebServerRequest *request)
+                    {
+    String url = request->url();
+    Serial.print("HTTP request for: ");
+    Serial.println(url);
+
+    // If file exists in SPIFFS, serve it with a simple content-type map
+    if (SPIFFS.exists(url)) {
+      String contentType = "text/plain";
+      if (url.endsWith(".html")) contentType = "text/html";
+      else if (url.endsWith(".css")) contentType = "text/css";
+      else if (url.endsWith(".js")) contentType = "application/javascript";
+      else if (url.endsWith(".svg")) contentType = "image/svg+xml";
+      else if (url.endsWith(".png")) contentType = "image/png";
+
+      request->send(SPIFFS, url, contentType);
+      return;
+    }
+
+    // Fallback: if root requested, serve monitor.html
+    if (url == "/") {
+      request->send(SPIFFS, "/monitor.html", "text/html");
+      return;
+    }
+
+    // Not found
+    request->send(404, "text/plain", "Not found"); });
+
+  // server.on("/sensor.json", HTTP_GET, [](AsyncWebServerRequest* request) {
+  //   portENTER_CRITICAL(&measureMux);
+  //   Measurements current = readings;
+  //   portEXIT_CRITICAL(&measureMux);
+
+  //   StaticJsonDocument<512> doc;
+  //   doc["voltage"] = String(current.voltage, 1);
+  //   doc["current"] = String(current.current, 2);
+  //   doc["power"] = String(current.power, 1);
+  //   doc["energy"] = String(current.energy, 2);
+  //   doc["frequency"] = String(current.frequency, 2);
+  //   doc["pf"] = String(current.pf, 2);
+  //   doc["uptime"] = String(current.uptime, 1);
+  //   doc["days"] = String(current.totalDays, 1);
+  //   doc["mainOutput"] = settings.mainOutput ? 1 : 0;
+
+  //   String response;
+  //   serializeJson(doc, response);
+  //   request->send(200, "application/json", response);
+  // });
+
+  // // Main Output Control Route - SET new state
+  // server.on(
+  //   "/output/set", HTTP_POST, [](AsyncWebServerRequest* request) {}, NULL,
+  //   [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+  //     StaticJsonDocument<200> doc;
+  //     DeserializationError error = deserializeJson(doc, (const char*)data);
+
+  //     if (!error) {
+  //       bool state = doc["state"];
+  //       bool previousState = settings.mainOutput;
+
+  //       settings.mainOutput = state;
+  //       saveSettings();
+
+  //       // Control relay pin
+  //       digitalWrite(MAIN_RELAY, state ? LOW : HIGH);
+
+  //       Serial.printf("Web Control: Output set to %s\n", state ? "ON" : "OFF");
+
+  //       // Push to Firebase only on change
+  //       if (fbSettings.enabled && WiFi.status() == WL_CONNECTED && previousState != state) {
+  //         writeOutputToFirebase(state);
+  //       }
+
+  //       // Send success response
+  //       StaticJsonDocument<100> response;
+  //       response["success"] = true;
+  //       response["mainOutput"] = state ? 1 : 0;
+
+  //       String jsonResponse;
+  //       serializeJson(response, jsonResponse);
+  //       request->send(200, "application/json", jsonResponse);
+  //     } else {
+  //       request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
+  //     }
+  //   });
+
+  server.begin();
+  webServerStarted = true;
+  Serial.println("Web server started successfully");
+}
+
+void checkWiFiAndStartServer()
+{
+  static unsigned long lastCheck = 0;
+  static bool wasConnected = false;
+
+  // Check every 5 seconds
+  if (millis() - lastCheck < 5000)
+    return;
+  lastCheck = millis();
+
+  bool isConnected = (WiFi.status() == WL_CONNECTED);
+
+  // WiFi just connected (first time or reconnected)
+  if (isConnected && !wasConnected)
+  {
+    Serial.println("WiFi connected! Starting server...");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+
+    if (!webServerStarted)
+    {
+      setupWebServer();
+      Serial.println("Web server is now running!");
+
+      // Show on OLED
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_6x12_tf);
+      u8g2.drawStr(0, 12, "WiFi Connected!");
+      u8g2.drawStr(0, 24, "Server Started");
+      u8g2.drawStr(0, 36, "IP:");
+      u8g2.drawStr(0, 48, WiFi.localIP().toString().c_str());
+      u8g2.sendBuffer();
+      delay(2000);
+    }
+  }
+
+  // WiFi disconnected - stop operations
+  if (!isConnected && wasConnected)
+  {
+    Serial.println("WiFi disconnected!");
+  }
+
+  wasConnected = isConnected;
+}
+
 //////////////////////   CENTRE TEXT   //////////////////////
 
 void drawCenteredStr(int y, const char *str, const uint8_t *font)
@@ -336,10 +513,38 @@ void setup()
   if (!SPIFFS.begin(true))
   {
     u8g2.drawStr(0, 18, "SPIFFS: ERROR");
+    Serial.println("SPIFFS mount failed");
   }
   else
   {
     u8g2.drawStr(0, 18, "SPIFFS: OK");
+    Serial.println("SPIFFS mounted successfully. Listing files:");
+
+    // List files in SPIFFS for debugging
+    File root = SPIFFS.open("/");
+    if (root)
+    {
+      File file = root.openNextFile();
+      while (file)
+      {
+        Serial.print(" - ");
+        Serial.println(file.name());
+        file = root.openNextFile();
+      }
+    }
+
+    if (SPIFFS.exists("/monitor.html"))
+      Serial.println("monitor.html: FOUND");
+    else
+      Serial.println("monitor.html: MISSING");
+    if (SPIFFS.exists("/config.html"))
+      Serial.println("config.html: FOUND");
+    else
+      Serial.println("config.html: MISSING");
+    if (SPIFFS.exists("/style.css"))
+      Serial.println("style.css: FOUND");
+    else
+      Serial.println("style.css: MISSING");
   }
   u8g2.sendBuffer();
   delay(1000);
@@ -365,6 +570,34 @@ void setup()
   configDateTime();
   delay(1500);
 
+  // --- Server Init ---
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_6x12_tf);
+    u8g2.drawStr(0, 12, "Starting Server...");
+    u8g2.sendBuffer();
+    delay(300);
+
+    setupWebServer();
+
+    u8g2.clearBuffer();
+    u8g2.drawStr(0, 12, "Server Started!");
+    u8g2.drawStr(0, 24, "IP Address:");
+    u8g2.drawStr(0, 36, WiFi.localIP().toString().c_str());
+    u8g2.sendBuffer();
+    delay(2000);
+  }
+  else
+  {
+    u8g2.clearBuffer();
+    u8g2.drawStr(0, 12, "WiFi Failed!");
+    u8g2.drawStr(0, 24, "Will auto-start");
+    u8g2.drawStr(0, 36, "when connected");
+    u8g2.sendBuffer();
+    delay(2000);
+  }
+
   // --- Ready ---
   u8g2.clearBuffer();
   drawCenteredStr(35, "System Ready!", u8g2_font_t0_14_tr);
@@ -381,6 +614,7 @@ void loop()
 
   // Display sensor values on LCD
   displaySensorValues();
+  checkWiFiAndStartServer();
 
   // Print to serial for debugging
   Serial.print("NTC Temp: ");
