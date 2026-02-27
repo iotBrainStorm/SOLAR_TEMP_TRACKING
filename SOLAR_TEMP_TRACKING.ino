@@ -22,14 +22,6 @@ void setup() {
     Serial.println(file.name());
     file = root.openNextFile();
   }
-  File file2 = SPIFFS.open("/index.html");
-  if (!file2) {
-    Serial.println("File open failed");
-  } else {
-    Serial.println("File size:");
-    Serial.println(file2.size());
-    file2.close();
-  }
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -44,8 +36,20 @@ void setup() {
 
   // Serve all static files
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-    Serial.println("Root Requested");
+    // Serial.println("Root Requested");
     request->send(SPIFFS, "/index.html", "text/html");
+  });
+
+  server.on("/config.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(SPIFFS, "/config.html", "text/html");
+  });
+
+  server.on("/dashboard.svg", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(SPIFFS, "/dashboard.svg", "image/svg+xml");
+  });
+
+  server.on("/settings.svg", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(SPIFFS, "/settings.svg", "image/svg+xml");
   });
 
   server.begin();

@@ -6,8 +6,8 @@ const PORT = 8000;
 const DATA_DIR = path.join(__dirname, 'data');
 
 const server = http.createServer((req, res) => {
-  // Default to index.html (or monitor.html)
-  let filePath = req.url === '/' ? path.join(DATA_DIR, 'monitor.html') : path.join(DATA_DIR, req.url);
+  // Default to index.html
+  let filePath = req.url === '/' ? path.join(DATA_DIR, 'index.html') : path.join(DATA_DIR, req.url.replace(/^\//, ''));
   
   // Security: prevent path traversal
   const realPath = path.resolve(filePath);
