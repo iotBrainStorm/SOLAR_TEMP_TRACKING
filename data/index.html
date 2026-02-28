@@ -227,24 +227,23 @@
       }
 
       function updateDashboard() {
-        // Try to fetch live data from ESP32 endpoint
         fetch("/sensor.json")
           .then((res) => {
-            if (!res.ok) throw new Error("no-json");
+            if (!res.ok) throw new Error("No response");
             return res.json();
           })
           .then((data) => {
-            let outside = parseFloat(data.ahtTemp);
-            let solar = parseFloat(data.ntcTemp);
-            let hum = parseFloat(data.humidity);
-            let sunPercent = parseFloat(random(0, 100, 0));
-            let lux = parseFloat(random(500, 90000, 0));
+            let outside = parseFloat(data.ahtTemp) || 0;
+            let solar = parseFloat(data.ntcTemp) || 0;
+            let hum = parseFloat(data.humidity) || 0;
+            let sunPercent = parseFloat(data.sunlight) || 0;
+            let lux = parseFloat(data.lux) || 0;
 
-            setValue("outsideTemp", outside, "°C");
-            setValue("solarTemp", solar, "°C");
-            setValue("humidity", hum, "%");
-            setValue("sunPercent", sunPercent, "%");
-            setValue("luxValue", lux, "lx");
+            setValue("outsideTemp", outside.toFixed(2), "°C");
+            setValue("solarTemp", solar.toFixed(2), "°C");
+            setValue("humidity", hum.toFixed(2), "%");
+            setValue("sunPercent", sunPercent.toFixed(0), "%");
+            setValue("luxValue", lux.toFixed(0), "lx");
 
             colorOutsideTemp(outside);
             colorSolarTemp(solar);
@@ -253,26 +252,12 @@
             colorLux(lux);
           })
           .catch(() => {
-            // Fallback to random values when endpoint unavailable
-            let ahtTemp = parseFloat(random(20, 45, 1));
-            let ntcTemp = parseFloat(random(30, 80, 1));
-            let humidity = parseFloat(random(20, 95, 1));
-            let sunPercent = parseFloat(random(0, 100, 0));
-            let lux = parseFloat(random(500, 90000, 0));
-
-            // Set values
-            setValue("outsideTemp", ahtTemp, "°C");
-            setValue("solarTemp", ntcTemp, "°C");
-            setValue("humidity", humidity, "%");
-            setValue("sunPercent", sunPercent, "%");
-            setValue("luxValue", lux, "lx");
-
-            // Apply dynamic colors
-            colorOutsideTemp(ahtTemp);
-            colorSolarTemp(ntcTemp);
-            colorHumidity(humidity);
-            colorSun(sunPercent);
-            colorLux(lux);
+            // If request fails → show zero values
+            setValue("outsideTemp", "0.00", "°C");
+            setValue("solarTemp", "0.00", "°C");
+            setValue("humidity", "0.00", "%");
+            setValue("sunPercent", "0", "%");
+            setValue("luxValue", "0", "lx");
           });
       }
 

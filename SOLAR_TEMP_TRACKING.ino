@@ -32,6 +32,9 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 // -- Temperature and Humidity sensor setup
 Adafruit_AHT10 aht;
 
+// -- Light sensor (LUX) setup
+BH1750 lightMeter;
+
 // -- Sensor Values Storage
 float ntcTemp = 0.0;
 float ahtTemp = 0.0;
@@ -329,6 +332,23 @@ void setupWebServer() {
     request->send(SPIFFS, "/settings.svg", "image/svg+xml");
   });
 
+  server.on("/sensor.json", HTTP_GET, [](AsyncWebServerRequest* request) {
+    // portENTER_CRITICAL(&measureMux);
+    // Measurements current = readings;
+    // portEXIT_CRITICAL(&measureMux);
+    StaticJsonDocument<256> doc;
+    doc["ntcTemp"] = ntcTemp;
+    doc["ahtTemp"] = ahtTemp;
+    doc["humidity"] = humidity;
+    doc["lux"] = luxValue;
+    doc["sunlight"] = sunlightPercentage;
+
+    String response;
+    serializeJson(doc, response);
+
+    request->send(200, "application/json", response);
+  });
+
   // server.on("/sensor.json", HTTP_GET, [](AsyncWebServerRequest* request) {
   //   portENTER_CRITICAL(&measureMux);
   //   Measurements current = readings;
@@ -415,12 +435,10 @@ void drawCenteredStr(int y, const char* str, const uint8_t* font) {
 
 //////////////////////   NTC   //////////////////////
 
-void calculateNTC()
-{
+void calculateNTC() {
   // ----- Average 50 NTC samples -----
   float adcSum = 0;
-  for (int i = 0; i < 50; i++)
-  {
+  for (int i = 0; i < 50; i++) {
     adcSum += analogRead(NTC_PIN);
     delay(5);
   }
@@ -432,7 +450,7 @@ void calculateNTC()
 
   // ----- Safety check -----
   if (voltage <= 0.001) {
-    ntcTemp = -100;   // Error value
+    ntcTemp = -100;  // Error value
     return;
   }
 
@@ -450,38 +468,97 @@ void calculateNTC()
 
 //////////////////////   AHT10   //////////////////////
 
-void calculateAHT()
-{
+void calculateAHT() {
   sensors_event_t humidityEvent, tempEvent;
   if (aht.getEvent(&humidityEvent, &tempEvent)) {
     ahtTemp = tempEvent.temperature;
     humidity = humidityEvent.relative_humidity;
   } else {
-    ahtTemp = -100;     // Error indicator
+    ahtTemp = -100;  // Error indicator
     humidity = 0;
+  }
+}
+
+//////////////////////   BH1750   //////////////////////
+
+void calculateLUX() {
+  luxValue = random(0, 120000);
+  // float rawLux = lightMeter.readLightLevel();
+  // if (rawLux < 0) {
+  //   luxValue = 0;  // Error fallback
+  // } else {
+  //   luxValue = (uint32_t)rawLux;
+  // }
+}
+
+//////////////////////   SUNLIGHT PERCENTAGE   //////////////////////
+
+void calculateSunlightPercentage() {
+  const uint32_t MAX_LUX = 100000;  // Adjust if needed
+
+  if (luxValue >= MAX_LUX) {
+    sunlightPercentage = 100;
+  } else {
+    sunlightPercentage = (uint8_t)((luxValue * 100) / MAX_LUX);
   }
 }
 
 //////////////////////   SERIAL OUTPUT   //////////////////////
 
-void serialOutput()
-{
+void serialOutput() {
   Serial.println("\n========================================");
   Serial.println("           Sensor Data Report");
   Serial.println("========================================");
 
-  Serial.printf("NTC Temperature  : %6.2f °C\n", ntcTemp);
-  Serial.printf("AHT Temperature  : %6.2f °C\n", ahtTemp);
-  Serial.printf("Humidity         : %6.2f %%\n", humidity);
+  Serial.printf("NTC Temperature  : %8.2f °C\n", ntcTemp);
+  Serial.printf("AHT Temperature  : %8.2f °C\n", ahtTemp);
+  Serial.printf("Humidity         : %8.2f %%\n", humidity);
+  Serial.printf("Light Intensity  : %8lu lux\n", luxValue);
+  Serial.printf("Sunlight Level   : %8u %%\n", sunlightPercentage);
 
   Serial.println("----------------------------------------");
 
-  // Optional comparison
   float tempDiff = ntcTemp - ahtTemp;
-  Serial.printf("Temp Difference  : %6.2f °C\n", tempDiff);
+  Serial.printf("Temp Difference  : %8.2f °C\n", tempDiff);
 
   Serial.println("========================================\n");
 }
+
+//////////////////////   DISPLAY LCD   //////////////////////
+
+void displaySensorValues() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x12_tf);
+
+  // NTC Temperature
+  char ntcStr[20];
+  snprintf(ntcStr, sizeof(ntcStr), "NTC: %.2f C", ntcTemp);
+  u8g2.drawStr(0, 12, ntcStr);
+
+  // AHT Temperature
+  char ahtStr[20];
+  snprintf(ahtStr, sizeof(ahtStr), "AHT: %.2f C", ahtTemp);
+  u8g2.drawStr(0, 24, ahtStr);
+
+  // Humidity
+  char humStr[20];
+  snprintf(humStr, sizeof(humStr), "HUM: %.2f%%", humidity);
+  u8g2.drawStr(0, 36, humStr);
+
+  // Lux
+  char luxStr[20];
+  snprintf(luxStr, sizeof(luxStr), "LUX: %lu", luxValue);
+  u8g2.drawStr(0, 48, luxStr);
+
+  // Sunlight Percentage
+  char sunStr[20];
+  snprintf(sunStr, sizeof(sunStr), "SUN: %u%%", sunlightPercentage);
+  u8g2.drawStr(0, 60, sunStr);
+
+  u8g2.sendBuffer();
+}
+
+//////////////////////   SETUP   //////////////////////
 
 void setup() {
   Serial.begin(115200);
@@ -552,7 +629,7 @@ void setup() {
   u8g2.sendBuffer();
   delay(1000);
 
-  // --- Sensor Init ---
+  // --- AHT Sensor Init ---
   u8g2.clearBuffer();
   Serial.println("\n==============================");
   Serial.println("AHT10 Sensor Initialization");
@@ -567,6 +644,28 @@ void setup() {
     u8g2.drawStr(0, 18, "AHT10 Sensor: OK");
     Serial.println("[SUCCESS] AHT10 detected successfully.");
     Serial.println("[INFO] Sensor ready for reading");
+    Serial.println("==============================\n");
+  }
+  u8g2.sendBuffer();
+  delay(1000);
+
+  // --- LUX Sensor Init ---
+  u8g2.clearBuffer();
+  Serial.println("\n==============================");
+  Serial.println("BH1750 Initialization");
+  Serial.println("==============================");
+  Serial.println("[INFO] Starting BH1750...");
+
+  Wire.begin();  // SDA, SCL default for ESP32
+  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+    u8g2.drawStr(0, 18, "BH1750: OK");
+    Serial.println("[SUCCESS] BH1750 detected.");
+    Serial.println("[INFO] Mode: Continuous High Resolution");
+    Serial.println("==============================\n");
+  } else {
+    u8g2.drawStr(0, 18, "BH1750: ERROR");
+    Serial.println("[ERROR] BH1750 not detected!");
+    Serial.println("[INFO] Check SDA/SCL wiring.");
     Serial.println("==============================\n");
   }
   u8g2.sendBuffer();
@@ -627,12 +726,16 @@ void setup() {
   drawCenteredStr(35, "System Ready!", u8g2_font_t0_14_tr);
   u8g2.sendBuffer();
   delay(1500);
+
+  u8g2.clearBuffer();
 }
 
 void loop() {
   calculateNTC();
   calculateAHT();
+  calculateLUX();
+  calculateSunlightPercentage();
   serialOutput();
+  displaySensorValues();
   delay(1000);
-
 }
