@@ -26,6 +26,33 @@
 #define ADC_RESOLUTION 4095.0   // 12 bits (1111 1111 1111)
 #define VREF 3.3                // Maximum sensing voltage of ESP32
 
+// -- Global variables for settings
+Preferences preferences;
+struct DeviceSettings {
+  uint8_t tempPrecision;      // 0,1,2
+  uint8_t humidityPrecision;  // 0,1,2
+  uint16_t ahtInterval;       // >=1
+
+  float ntcResistance;
+  float betaConstant;
+  float ntcOffset;
+  uint16_t ntcInterval;
+
+  uint8_t luxPercentageMode;  // 0 auto, 1 manual
+  uint32_t maxLuxValue;
+  uint32_t minLuxValue;
+  uint16_t luxInterval;
+
+  uint8_t enableNodeRed;  // 0 or 1
+  String nodeRedIP;
+  uint16_t nodeRedPort;
+  uint16_t nodeRedInterval;
+
+  long gmtOffset;       // seconds
+  uint8_t clockFormat;  // 12 or 24
+};
+DeviceSettings settings;
+
 // -- LCD Setup
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
@@ -56,6 +83,121 @@ const char MSG_WELCOME[] PROGMEM = "ESP";
 const char MSG_SUBTITLE[] PROGMEM = "SOLAR - TEM";
 const char MSG_DEVELOPER[] PROGMEM = "developed by M.Maity";
 
+
+//////////////////////   DEFAULT SETTINGS   //////////////////////
+
+void setDefaultSettings() {
+  settings.tempPrecision = 2;
+  settings.humidityPrecision = 2;
+  settings.ahtInterval = 1;
+
+  settings.ntcResistance = 1000.0;
+  settings.betaConstant = 3950.0;
+  settings.ntcOffset = 0.0;
+  settings.ntcInterval = 1;
+
+  settings.luxPercentageMode = 0;
+  settings.maxLuxValue = 100000;
+  settings.minLuxValue = 0;
+  settings.luxInterval = 1;
+
+  settings.enableNodeRed = 0;
+  settings.nodeRedIP = "";
+  settings.nodeRedPort = 1880;
+  settings.nodeRedInterval = 10;
+
+  settings.gmtOffset = 19800;
+  settings.clockFormat = 24;
+}
+
+//////////////////////   LOAD SETTINGS   //////////////////////
+
+void loadSettings() {
+
+  Serial.println("\n========== LOADING SETTINGS ==========");
+
+  preferences.begin("device", true);  // read-only
+
+  settings.tempPrecision = preferences.getUChar("tPrec", 2);
+  settings.humidityPrecision = preferences.getUChar("hPrec", 2);
+  settings.ahtInterval = preferences.getUInt("ahtInt", 1);
+
+  settings.ntcResistance = preferences.getFloat("ntcR", 1000.0);
+  settings.betaConstant = preferences.getFloat("beta", 3950.0);
+  settings.ntcOffset = preferences.getFloat("ntcOff", 0.0);
+  settings.ntcInterval = preferences.getUInt("ntcInt", 1);
+
+  settings.luxPercentageMode = preferences.getUChar("luxMode", 0);
+  settings.maxLuxValue = preferences.getULong("luxMax", 100000);
+  settings.minLuxValue = preferences.getULong("luxMin", 0);
+  settings.luxInterval = preferences.getUInt("luxInt", 1);
+
+  settings.enableNodeRed = preferences.getUChar("nrEn", 0);
+  settings.nodeRedIP = preferences.getString("nrIP", "");
+  settings.nodeRedPort = preferences.getUInt("nrPort", 1880);
+  settings.nodeRedInterval = preferences.getUInt("nrInt", 10);
+
+  settings.gmtOffset = preferences.getLong("gmt", 19800);
+  settings.clockFormat = preferences.getUChar("clkFmt", 24);
+
+  preferences.end();
+
+  // -------- PRINT LOADED SETTINGS --------
+  Serial.println("Temperature Precision : " + String(settings.tempPrecision));
+  Serial.println("Humidity Precision    : " + String(settings.humidityPrecision));
+  Serial.println("AHT Interval (sec)    : " + String(settings.ahtInterval));
+
+  Serial.println("NTC Resistance        : " + String(settings.ntcResistance));
+  Serial.println("Beta Constant         : " + String(settings.betaConstant));
+  Serial.println("NTC Offset            : " + String(settings.ntcOffset));
+  Serial.println("NTC Interval (sec)    : " + String(settings.ntcInterval));
+
+  Serial.println("Lux Mode (0=A,1=M)    : " + String(settings.luxPercentageMode));
+  Serial.println("Max Lux Value         : " + String(settings.maxLuxValue));
+  Serial.println("Min Lux Value         : " + String(settings.minLuxValue));
+  Serial.println("Lux Interval (sec)    : " + String(settings.luxInterval));
+
+  Serial.println("Node-RED Enabled      : " + String(settings.enableNodeRed));
+  Serial.println("Node-RED IP           : " + settings.nodeRedIP);
+  Serial.println("Node-RED Port         : " + String(settings.nodeRedPort));
+  Serial.println("Node-RED Interval     : " + String(settings.nodeRedInterval));
+
+  Serial.println("GMT Offset (sec)      : " + String(settings.gmtOffset));
+  Serial.println("Clock Format          : " + String(settings.clockFormat));
+
+  Serial.println("=======================================\n");
+}
+
+//////////////////////   SAVE SETTINGS   //////////////////////
+
+void saveSettings() {
+  preferences.begin("device", false);  // write mode
+
+  preferences.putUChar("tPrec", settings.tempPrecision);
+  preferences.putUChar("hPrec", settings.humidityPrecision);
+  preferences.putUInt("ahtInt", settings.ahtInterval);
+
+  preferences.putFloat("ntcR", settings.ntcResistance);
+  preferences.putFloat("beta", settings.betaConstant);
+  preferences.putFloat("ntcOff", settings.ntcOffset);
+  preferences.putUInt("ntcInt", settings.ntcInterval);
+
+  preferences.putUChar("luxMode", settings.luxPercentageMode);
+  preferences.putULong("luxMax", settings.maxLuxValue);
+  preferences.putULong("luxMin", settings.minLuxValue);
+  preferences.putUInt("luxInt", settings.luxInterval);
+
+  preferences.putUChar("nrEn", settings.enableNodeRed);
+  preferences.putString("nrIP", settings.nodeRedIP);
+  preferences.putUInt("nrPort", settings.nodeRedPort);
+  preferences.putUInt("nrInt", settings.nodeRedInterval);
+
+  preferences.putLong("gmt", settings.gmtOffset);
+  preferences.putUChar("clkFmt", settings.clockFormat);
+
+  preferences.end();
+  Serial.println("Settings Saved to NVS");
+}
 
 //////////////////////   WIFI SETUP   //////////////////////
 
@@ -349,63 +491,130 @@ void setupWebServer() {
     request->send(200, "application/json", response);
   });
 
-  // server.on("/sensor.json", HTTP_GET, [](AsyncWebServerRequest* request) {
-  //   portENTER_CRITICAL(&measureMux);
-  //   Measurements current = readings;
-  //   portEXIT_CRITICAL(&measureMux);
+  server.on("/save", HTTP_POST, [](AsyncWebServerRequest* request) {
+    // -------- TEMPERATURE --------
+    if (request->hasParam("tempPrecision", true))
+      settings.tempPrecision = request->getParam("tempPrecision", true)->value().toInt();
 
-  //   StaticJsonDocument<512> doc;
-  //   doc["voltage"] = String(current.voltage, 1);
-  //   doc["current"] = String(current.current, 2);
-  //   doc["power"] = String(current.power, 1);
-  //   doc["energy"] = String(current.energy, 2);
-  //   doc["frequency"] = String(current.frequency, 2);
-  //   doc["pf"] = String(current.pf, 2);
-  //   doc["uptime"] = String(current.uptime, 1);
-  //   doc["days"] = String(current.totalDays, 1);
-  //   doc["mainOutput"] = settings.mainOutput ? 1 : 0;
+    if (request->hasParam("humidityPrecision", true))
+      settings.humidityPrecision = request->getParam("humidityPrecision", true)->value().toInt();
 
-  //   String response;
-  //   serializeJson(doc, response);
-  //   request->send(200, "application/json", response);
-  // });
+    if (request->hasParam("ahtInterval", true))
+      settings.ahtInterval = request->getParam("ahtInterval", true)->value().toInt();
 
-  // // Main Output Control Route - SET new state
-  // server.on(
-  //   "/output/set", HTTP_POST, [](AsyncWebServerRequest* request) {}, NULL,
-  //   [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-  //     StaticJsonDocument<200> doc;
-  //     DeserializationError error = deserializeJson(doc, (const char*)data);
 
-  //     if (!error) {
-  //       bool state = doc["state"];
-  //       bool previousState = settings.mainOutput;
+    // -------- NTC --------
+    if (request->hasParam("ntcResistance", true))
+      settings.ntcResistance = request->getParam("ntcResistance", true)->value().toFloat();
 
-  //       settings.mainOutput = state;
-  //       saveSettings();
+    if (request->hasParam("betaConstant", true))
+      settings.betaConstant = request->getParam("betaConstant", true)->value().toFloat();
 
-  //       // Control relay pin
-  //       digitalWrite(MAIN_RELAY, state ? LOW : HIGH);
+    if (request->hasParam("ntcOffset", true))
+      settings.ntcOffset = request->getParam("ntcOffset", true)->value().toFloat();
 
-  //       Serial.printf("Web Control: Output set to %s\n", state ? "ON" : "OFF");
+    if (request->hasParam("ntcInterval", true))
+      settings.ntcInterval = request->getParam("ntcInterval", true)->value().toInt();
 
-  //       // Push to Firebase only on change
-  //       if (fbSettings.enabled && WiFi.status() == WL_CONNECTED && previousState != state) {
-  //         writeOutputToFirebase(state);
-  //       }
 
-  //       // Send success response
-  //       StaticJsonDocument<100> response;
-  //       response["success"] = true;
-  //       response["mainOutput"] = state ? 1 : 0;
+    // -------- LUX --------
+    if (request->hasParam("luxMode", true))
+      settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
 
-  //       String jsonResponse;
-  //       serializeJson(response, jsonResponse);
-  //       request->send(200, "application/json", jsonResponse);
-  //     } else {
-  //       request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
-  //     }
-  //   });
+    if (request->hasParam("maxLuxValue", true))
+      settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
+
+    if (request->hasParam("minLuxValue", true))
+      settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
+
+    if (request->hasParam("luxInterval", true))
+      settings.luxInterval = request->getParam("luxInterval", true)->value().toInt();
+
+
+    // -------- NODE RED --------
+    settings.enableNodeRed = request->hasParam("enableNodeRed", true) ? 1 : 0;
+
+    if (request->hasParam("nodeRedIP", true))
+      settings.nodeRedIP = request->getParam("nodeRedIP", true)->value();
+
+    if (request->hasParam("nodeRedPort", true))
+      settings.nodeRedPort = request->getParam("nodeRedPort", true)->value().toInt();
+
+    if (request->hasParam("nodeRedInterval", true))
+      settings.nodeRedInterval = request->getParam("nodeRedInterval", true)->value().toInt();
+
+
+    // -------- CLOCK --------
+    if (request->hasParam("gmtOffset", true))
+      settings.gmtOffset = request->getParam("gmtOffset", true)->value().toInt();
+
+    if (request->hasParam("clockFormat", true))
+      settings.clockFormat = request->getParam("clockFormat", true)->value().toInt();
+
+
+    // -------- SAVE TO NVS --------
+    saveSettings();
+
+    Serial.println("Settings Saved Successfully");
+
+    request->send(200, "text/plain", "Settings Saved");
+  });
+
+  server.on("/settings.json", HTTP_GET, [](AsyncWebServerRequest* request) {
+    StaticJsonDocument<512> doc;
+
+    doc["tempPrecision"] = settings.tempPrecision;
+    doc["humidityPrecision"] = settings.humidityPrecision;
+    doc["ahtInterval"] = settings.ahtInterval;
+
+    doc["ntcResistance"] = settings.ntcResistance;
+    doc["betaConstant"] = settings.betaConstant;
+    doc["ntcOffset"] = settings.ntcOffset;
+    doc["ntcInterval"] = settings.ntcInterval;
+
+    doc["luxMode"] = settings.luxPercentageMode;
+    doc["maxLuxValue"] = settings.maxLuxValue;
+    doc["minLuxValue"] = settings.minLuxValue;
+    doc["luxInterval"] = settings.luxInterval;
+
+    doc["enableNodeRed"] = settings.enableNodeRed;
+    doc["nodeRedIP"] = settings.nodeRedIP;
+    doc["nodeRedPort"] = settings.nodeRedPort;
+    doc["nodeRedInterval"] = settings.nodeRedInterval;
+
+    doc["gmtOffset"] = settings.gmtOffset;
+    doc["clockFormat"] = settings.clockFormat;
+
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+
+  server.on("/reset", HTTP_POST, [](AsyncWebServerRequest* request) {
+    Serial.println("\n===== FACTORY RESET REQUEST RECEIVED =====");
+
+    // 1️⃣ Clear old preferences
+    preferences.begin("device", false);
+    preferences.clear();
+    preferences.end();
+
+    Serial.println("NVS Cleared");
+
+    // 2️⃣ Load default values into RAM
+    setDefaultSettings();
+
+    // 3️⃣ Save default values back to NVS
+    saveSettings();
+
+    Serial.println("Default Settings Applied & Saved");
+
+    // 4️⃣ Send response to browser
+    request->send(200, "text/plain", "Factory Reset Successful");
+
+    // 5️⃣ Optional: restart device after short delay
+    delay(1000);
+    ESP.restart();
+  });
 
   server.begin();
   webServerStarted = true;
@@ -584,7 +793,7 @@ void setup() {
   Serial.println("[INFO] Initializing EEPROM...");
   delay(1000);
   EEPROM.begin(512);
-  // loadSettings();
+  loadSettings();
   Serial.println("[SUCCESS] EEPROM Initialized.");
   Serial.printf("[INFO] EEPROM Size: %d bytes\n", 512);
   Serial.println("==============================\n");

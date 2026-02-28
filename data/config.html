@@ -222,7 +222,7 @@
 
   <body>
     <div class="container">
-      <form action="/save" method="POST">
+      <form action="/save" method="POST" onsubmit="return confirmSave(event);">
         <h1>Device Configuration</h1>
 
         <!-- Temperature -->
@@ -230,21 +230,21 @@
           <h2>Temperature Settings</h2>
 
           <label>Temperature Precision</label>
-          <select>
-            <option>None</option>
-            <option>Up to 1 Decimal</option>
-            <option>Up to 2 Decimals</option>
+          <select name="tempPrecision">
+            <option value="0">None</option>
+            <option value="1">Up to 1 Decimal</option>
+            <option value="2">Up to 2 Decimals</option>
           </select>
 
           <label>Humidity Precision</label>
-          <select>
-            <option>None</option>
-            <option>Up to 1 Decimal</option>
-            <option>Up to 2 Decimals</option>
+          <select name="humidityPrecision">
+            <option value="0">None</option>
+            <option value="1">Up to 1 Decimal</option>
+            <option value="2">Up to 2 Decimals</option>
           </select>
 
           <label>Reading Interval (seconds)</label>
-          <input type="number" min="1" value="1" />
+          <input type="number" name="ahtInterval" min="1" value="1" />
         </div>
 
         <!-- NTC -->
@@ -252,16 +252,16 @@
           <h2>NTC Settings</h2>
 
           <label>NTC Resistance at 25°C (Ohm)</label>
-          <input type="number" placeholder="Example: 1000" />
+          <input type="number" name="ntcResistance" placeholder="1000" />
 
           <label>NTC Beta Constant</label>
-          <input type="number" value="3950" />
+          <input type="number" name="betaConstant" value="3950" />
 
           <label>NTC Offset (°C)</label>
-          <input type="number" step="0.1" value="0" />
+          <input type="number" name="ntcOffset" step="0.1" value="0" />
 
           <label>Reading Interval (seconds)</label>
-          <input type="number" min="1" value="1" />
+          <input type="number" name="ntcInterval" min="1" value="1" />
         </div>
 
         <!-- LUX -->
@@ -269,9 +269,9 @@
           <h2>LUX Settings</h2>
 
           <label>LUX Percentage Mode</label>
-          <select id="luxMode" onchange="toggleLuxMode()">
-            <option value="auto" selected>Auto</option>
-            <option value="manual">Manual</option>
+          <select id="luxMode" name="luxMode" onchange="toggleLuxMode()">
+            <option value="0">Auto</option>
+            <option value="1">Manual</option>
           </select>
 
           <div class="lux-display">
@@ -283,28 +283,28 @@
             <div class="lux-grid">
               <div class="lux-box">
                 <label>Max LUX Value</label>
-                <input type="number" />
+                <input type="number" name="maxLuxValue" />
               </div>
               <div class="lux-box">
                 <label>Max Percentage (%)</label>
-                <input type="number" />
+                <input type="number" name="maxLuxPercentage" />
               </div>
             </div>
 
             <div class="lux-grid">
               <div class="lux-box">
                 <label>Min LUX Value</label>
-                <input type="number" />
+                <input type="number" name="minLuxValue" />
               </div>
               <div class="lux-box">
                 <label>Min Percentage (%)</label>
-                <input type="number" />
+                <input type="number" name="minLuxPercentage" />
               </div>
             </div>
           </div>
 
           <label>Reading Interval (seconds)</label>
-          <input type="number" min="1" value="1" />
+          <input type="number" name="luxInterval" min="1" value="1" />
         </div>
 
         <!-- Node-RED -->
@@ -313,35 +313,55 @@
 
           <label>Enable Node-RED</label>
           <label class="switch">
-            <input type="checkbox" id="nodeRedToggle" />
+            <input type="checkbox" id="nodeRedToggle" name="enableNodeRed" />
             <span class="slider"></span>
           </label>
 
           <label>Set IP Address</label>
-          <input type="text" placeholder="192.168.1.100" />
+          <input type="text" name="nodeRedIP" placeholder="192.168.1.100" />
 
           <label>Set Port</label>
-          <input type="number" placeholder="1880" />
+          <input type="number" name="nodeRedPort" placeholder="1880" />
 
           <label>Send Interval (seconds)</label>
-          <input type="number" min="1" placeholder="10" />
+          <input
+            type="number"
+            name="nodeRedInterval"
+            min="1"
+            placeholder="10"
+          />
         </div>
 
         <!-- Time -->
         <div class="section">
           <h2>Time Settings</h2>
 
-          <label>GMT Offset</label>
-          <input type="number" step="0.5" placeholder="Example: 5.5" />
+          <label>GMT Offset (seconds)</label>
+          <input
+            type="number"
+            name="gmtOffset"
+            placeholder="19800 for GMT+5:30"
+            step="1800"
+          />
 
           <label>Clock Format</label>
-          <select>
-            <option>24 Hour</option>
-            <option>12 Hour</option>
+          <select name="clockFormat">
+            <option value="24">24 Hour</option>
+            <option value="12">12 Hour</option>
           </select>
         </div>
 
         <button>Save Configuration</button>
+        <button
+          type="button"
+          onclick="confirmReset()"
+          style="
+            background: linear-gradient(90deg, #6c757d, #343a40);
+            margin-top: 10px;
+          "
+        >
+          Reset to Default
+        </button>
       </form>
     </div>
 
@@ -353,13 +373,93 @@
       function toggleLuxMode() {
         var mode = document.getElementById("luxMode").value;
         var section = document.getElementById("manualLuxSection");
-        section.classList.toggle("hidden", mode !== "manual");
+        section.classList.toggle("hidden", mode !== "1");
       }
 
+      // 🔥 Real-time sensor update
       setInterval(function () {
-        let randomLux = Math.floor(Math.random() * 1000);
-        document.getElementById("luxValue").innerText = randomLux + " LUX";
+        fetch("/sensor.json")
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("luxValue").innerText = data.lux + " LUX";
+          })
+          .catch(() => {
+            document.getElementById("luxValue").innerText = "0 LUX";
+          });
       }, 2000);
+    </script>
+
+    <script>
+      window.addEventListener("load", function () {
+        fetch("/settings.json")
+          .then((response) => response.json())
+          .then((data) => {
+            document.querySelector("[name=tempPrecision]").value =
+              data.tempPrecision;
+            document.querySelector("[name=humidityPrecision]").value =
+              data.humidityPrecision;
+            document.querySelector("[name=ahtInterval]").value =
+              data.ahtInterval;
+
+            document.querySelector("[name=ntcResistance]").value =
+              data.ntcResistance;
+            document.querySelector("[name=betaConstant]").value =
+              data.betaConstant;
+            document.querySelector("[name=ntcOffset]").value = parseFloat(
+              data.ntcOffset,
+            ).toFixed(2);
+            document.querySelector("[name=ntcInterval]").value =
+              data.ntcInterval;
+
+            document.querySelector("[name=luxMode]").value = data.luxMode;
+            toggleLuxMode();
+            document.querySelector("[name=maxLuxValue]").value =
+              data.maxLuxValue;
+            document.querySelector("[name=minLuxValue]").value =
+              data.minLuxValue;
+            document.querySelector("[name=luxInterval]").value =
+              data.luxInterval;
+
+            document.querySelector("[name=enableNodeRed]").checked =
+              data.enableNodeRed == 1;
+
+            document.querySelector("[name=nodeRedIP]").value = data.nodeRedIP;
+            document.querySelector("[name=nodeRedPort]").value =
+              data.nodeRedPort;
+            document.querySelector("[name=nodeRedInterval]").value =
+              data.nodeRedInterval;
+
+            document.querySelector("[name=gmtOffset]").value = data.gmtOffset;
+            document.querySelector("[name=clockFormat]").value =
+              data.clockFormat;
+          });
+      });
+    </script>
+    <script>
+      function confirmSave(event) {
+        event.preventDefault(); // stop immediate submit
+
+        if (confirm("Do you want to save configuration?")) {
+          event.target.submit(); // submit form manually
+          return true;
+        } else {
+          return false; // cancel
+        }
+      }
+    </script>
+    <script>
+      function confirmReset() {
+        if (confirm("Do you want to reset to default settings?")) {
+          fetch("/reset", { method: "POST" })
+            .then(() => {
+              alert("Device reset to default successfully!");
+              location.reload();
+            })
+            .catch(() => {
+              alert("Reset failed!");
+            });
+        }
+      }
     </script>
   </body>
 </html>
