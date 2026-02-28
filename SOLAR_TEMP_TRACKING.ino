@@ -162,6 +162,150 @@ bool connectToSavedWiFi() {
   }
 }
 
+//////////////////////   TIME SETUP   //////////////////////
+
+void configDateTime() {
+
+  Serial.println("\n==============================");
+  Serial.println("Date & Time Configuration");
+  Serial.println("==============================");
+
+  if (WiFi.status() != WL_CONNECTED) {
+
+    Serial.println("[WARNING] WiFi not connected!");
+    Serial.println("[INFO] Running in offline mode.");
+    Serial.println("[INFO] Setting default time: 01/01/2025 12:00:00");
+
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_6x12_tf);
+    u8g2.drawStr(0, 24, "No WiFi!");
+    u8g2.drawStr(0, 36, "Time not synced!");
+    u8g2.drawStr(0, 48, "Starting offline...");
+    u8g2.sendBuffer();
+
+    unsigned long start = millis();
+    while (millis() - start < 2000) yield();
+
+    struct tm tm;
+    tm.tm_year = 2025 - 1900;
+    tm.tm_mon = 0;
+    tm.tm_mday = 1;
+    tm.tm_hour = 12;
+    tm.tm_min = 0;
+    tm.tm_sec = 0;
+
+    time_t t = mktime(&tm);
+    struct timeval now = { .tv_sec = t };
+    settimeofday(&now, nullptr);
+
+    Serial.println("[SUCCESS] Default time applied.");
+    Serial.println("==============================\n");
+    return;
+  }
+
+  Serial.println("[INFO] WiFi connected.");
+  Serial.println("[INFO] Starting NTP sync...");
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x12_tf);
+  u8g2.drawStr(0, 12, "Syncing Time...");
+  u8g2.sendBuffer();
+
+  unsigned long start = millis();
+  while (millis() - start < 1000) yield();
+
+  int attempts = 0;
+  const int MAX_ATTEMPTS = 5;
+  struct tm timeinfo;
+
+  while (attempts < MAX_ATTEMPTS) {
+
+    Serial.printf("[INFO] NTP Attempt %d/%d\n", attempts + 1, MAX_ATTEMPTS);
+
+    char attemptStr[16];
+    snprintf(attemptStr, sizeof(attemptStr), "Attempt: %d/5", attempts + 1);
+
+    u8g2.clearBuffer();
+    u8g2.drawStr(0, 12, "Syncing Time...");
+    u8g2.drawStr(0, 24, attemptStr);
+    u8g2.sendBuffer();
+
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+    start = millis();
+    while (millis() - start < 1000) yield();
+
+    if (getLocalTime(&timeinfo)) {
+      Serial.println("[SUCCESS] Time synced from NTP server.");
+      break;
+    }
+
+    attempts++;
+  }
+
+  if (getLocalTime(&timeinfo)) {
+
+    char timeStr[16];
+    char dateStr[18];
+    char gmtStr[30];
+
+    strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeinfo);
+    strftime(dateStr, sizeof(dateStr), "%d.%m.%Y", &timeinfo);
+    strftime(gmtStr, sizeof(gmtStr), "%z %Z", &timeinfo);
+
+    Serial.println("-------- Current Time --------");
+    Serial.printf("Time : %s\n", timeStr);
+    Serial.printf("Date : %s\n", dateStr);
+    Serial.printf("Zone : %s\n", gmtStr);
+    Serial.println("------------------------------");
+    Serial.println("==============================\n");
+
+    strftime(timeStr, sizeof(timeStr), "Time: %H:%M:%S", &timeinfo);
+    strftime(dateStr, sizeof(dateStr), "Date: %d.%m.%Y", &timeinfo);
+    strftime(gmtStr, sizeof(gmtStr), "GMT: %z %Z", &timeinfo);
+
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_t0_14_tr);
+    u8g2.drawStr(0, 16, timeStr);
+    u8g2.drawStr(0, 32, dateStr);
+    u8g2.drawStr(0, 62, gmtStr);
+    u8g2.sendBuffer();
+
+    start = millis();
+    while (millis() - start < 2000) yield();
+
+  } else {
+
+    Serial.println("[ERROR] NTP sync failed!");
+    Serial.println("[INFO] Applying default offline time.");
+    Serial.println("[INFO] Default: 01/01/2025 12:00:00");
+
+    struct tm tm;
+    tm.tm_year = 2025 - 1900;
+    tm.tm_mon = 0;
+    tm.tm_mday = 1;
+    tm.tm_hour = 12;
+    tm.tm_min = 0;
+    tm.tm_sec = 0;
+
+    time_t t = mktime(&tm);
+    struct timeval now = { .tv_sec = t };
+    settimeofday(&now, nullptr);
+
+    Serial.println("[SUCCESS] Default time applied.");
+    Serial.println("==============================\n");
+
+    u8g2.clearBuffer();
+    u8g2.drawStr(0, 12, "Time not synced!");
+    u8g2.drawStr(0, 24, "Check internet!");
+    u8g2.drawStr(0, 48, "Starting offline...");
+    u8g2.sendBuffer();
+
+    start = millis();
+    while (millis() - start < 2000) yield();
+  }
+}
+
 //////////////////////   WELCOME MESSAGE   //////////////////////
 
 void welcomeMsg() {
@@ -202,6 +346,10 @@ void setup() {
 
   // --- WiFi Setup ---
   connectToSavedWiFi();
+  delay(500);
+
+  // --- Time Setup ---
+  configDateTime();
   delay(500);
 
   // Serve all static files
