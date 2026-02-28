@@ -306,6 +306,90 @@ void configDateTime() {
   }
 }
 
+//////////////////////   SERVER SETUP   //////////////////////
+
+void setupWebServer() {
+  if (webServerStarted) return;  // Already started
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+    // Serial.println("Root Requested");
+    request->send(SPIFFS, "/index.html", "text/html");
+  });
+
+  server.on("/config.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(SPIFFS, "/config.html", "text/html");
+  });
+
+  server.on("/dashboard.svg", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(SPIFFS, "/dashboard.svg", "image/svg+xml");
+  });
+
+  server.on("/settings.svg", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(SPIFFS, "/settings.svg", "image/svg+xml");
+  });
+
+  // server.on("/sensor.json", HTTP_GET, [](AsyncWebServerRequest* request) {
+  //   portENTER_CRITICAL(&measureMux);
+  //   Measurements current = readings;
+  //   portEXIT_CRITICAL(&measureMux);
+
+  //   StaticJsonDocument<512> doc;
+  //   doc["voltage"] = String(current.voltage, 1);
+  //   doc["current"] = String(current.current, 2);
+  //   doc["power"] = String(current.power, 1);
+  //   doc["energy"] = String(current.energy, 2);
+  //   doc["frequency"] = String(current.frequency, 2);
+  //   doc["pf"] = String(current.pf, 2);
+  //   doc["uptime"] = String(current.uptime, 1);
+  //   doc["days"] = String(current.totalDays, 1);
+  //   doc["mainOutput"] = settings.mainOutput ? 1 : 0;
+
+  //   String response;
+  //   serializeJson(doc, response);
+  //   request->send(200, "application/json", response);
+  // });
+
+  // // Main Output Control Route - SET new state
+  // server.on(
+  //   "/output/set", HTTP_POST, [](AsyncWebServerRequest* request) {}, NULL,
+  //   [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+  //     StaticJsonDocument<200> doc;
+  //     DeserializationError error = deserializeJson(doc, (const char*)data);
+
+  //     if (!error) {
+  //       bool state = doc["state"];
+  //       bool previousState = settings.mainOutput;
+
+  //       settings.mainOutput = state;
+  //       saveSettings();
+
+  //       // Control relay pin
+  //       digitalWrite(MAIN_RELAY, state ? LOW : HIGH);
+
+  //       Serial.printf("Web Control: Output set to %s\n", state ? "ON" : "OFF");
+
+  //       // Push to Firebase only on change
+  //       if (fbSettings.enabled && WiFi.status() == WL_CONNECTED && previousState != state) {
+  //         writeOutputToFirebase(state);
+  //       }
+
+  //       // Send success response
+  //       StaticJsonDocument<100> response;
+  //       response["success"] = true;
+  //       response["mainOutput"] = state ? 1 : 0;
+
+  //       String jsonResponse;
+  //       serializeJson(response, jsonResponse);
+  //       request->send(200, "application/json", jsonResponse);
+  //     } else {
+  //       request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
+  //     }
+  //   });
+
+  server.begin();
+  webServerStarted = true;
+}
+
 //////////////////////   WELCOME MESSAGE   //////////////////////
 
 void welcomeMsg() {
@@ -352,26 +436,53 @@ void setup() {
   configDateTime();
   delay(500);
 
-  // Serve all static files
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-    // Serial.println("Root Requested");
-    request->send(SPIFFS, "/index.html", "text/html");
-  });
 
-  server.on("/config.html", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(SPIFFS, "/config.html", "text/html");
-  });
+  // --- Server Setup ---
+  if (WiFi.status() == WL_CONNECTED) {
 
-  server.on("/dashboard.svg", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(SPIFFS, "/dashboard.svg", "image/svg+xml");
-  });
+    Serial.println("\n==============================");
+    Serial.println("Web Server Initialization");
+    Serial.println("==============================");
+    Serial.println("[INFO] WiFi Connected.");
+    Serial.println("[INFO] Starting Web Server...");
 
-  server.on("/settings.svg", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(SPIFFS, "/settings.svg", "image/svg+xml");
-  });
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_6x12_tf);
+    u8g2.drawStr(0, 12, "Starting Server...");
+    u8g2.sendBuffer();
+    delay(300);
 
-  server.begin();
-  Serial.println("Server Started");
+    setupWebServer();
+
+    Serial.println("[SUCCESS] Web Server Started!");
+    Serial.printf("SSID       : %s\n", WiFi.SSID().c_str());
+    Serial.printf("Server IP  : %s\n", WiFi.localIP().toString().c_str());
+    Serial.println("==============================\n");
+
+    u8g2.clearBuffer();
+    u8g2.drawStr(0, 12, "Server Started!");
+    u8g2.drawStr(0, 24, "IP Address:");
+    u8g2.drawStr(0, 36, WiFi.localIP().toString().c_str());
+    u8g2.sendBuffer();
+    delay(2000);
+
+  } else {
+
+    Serial.println("\n==============================");
+    Serial.println("Web Server Initialization");
+    Serial.println("==============================");
+    Serial.println("[ERROR] WiFi not connected!");
+    Serial.println("[INFO] Server will auto-start once WiFi reconnects.");
+    Serial.println("==============================\n");
+
+    u8g2.clearBuffer();
+    u8g2.drawStr(0, 12, "WiFi Failed!");
+    u8g2.drawStr(0, 24, "Will auto-start");
+    u8g2.drawStr(0, 36, "when connected");
+    u8g2.sendBuffer();
+    delay(2000);
+  }
+
 }
 
 void loop() {}
