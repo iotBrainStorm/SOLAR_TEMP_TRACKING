@@ -1,6 +1,20 @@
+#include <Arduino.h>
+#include <math.h>               // To calculate NTC
 #include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <SPIFFS.h>
+#include <WiFiManager.h>
+#include <ESPAsyncWebServer.h>  // For web server
+#include <HTTPClient.h>         // Node-Red
+#include <Wire.h>               // I2C communication
+#include <SPI.h>
+#include <EEPROM.h>             // Settings storage
+#include <SPIFFS.h>             // File system
+#include <HardwareSerial.h>     // Serial communication
+#include "time.h"               // Time management
+#include <U8g2lib.h>            // OLED display
+#include <ArduinoJson.h>        // make json format
+#include <Preferences.h>        // To store users' settings
+#include <Adafruit_AHT10.h>     // For temperature, humidity
+#include <BH1750.h>             // For LUX measurement of sunlight
 
 const char* ssid = "MRINAL";
 const char* password = "***mrinal***";
