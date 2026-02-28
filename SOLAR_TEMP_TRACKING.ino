@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <math.h>  // To calculate NTC
 #include <WiFi.h>
-#include <WiFiManager.h>
+#include <WiFiManager.h>        // To save wifi password, instead of hard coding
 #include <ESPAsyncWebServer.h>  // For web server
 #include <HTTPClient.h>         // Node-Red
 #include <Wire.h>               // I2C communication
@@ -37,6 +37,7 @@ float ntcTemp = 0.0;
 float ahtTemp = 0.0;
 float humidity = 0.0;
 uint32_t luxValue = 0;
+uint8_t sunlightPercentage = 0;
 
 // -- Time Management
 const char* ntpServer = "pool.ntp.org";
@@ -412,6 +413,76 @@ void drawCenteredStr(int y, const char* str, const uint8_t* font) {
   u8g2.drawStr(x, y, str);
 }
 
+//////////////////////   NTC   //////////////////////
+
+void calculateNTC()
+{
+  // ----- Average 50 NTC samples -----
+  float adcSum = 0;
+  for (int i = 0; i < 50; i++)
+  {
+    adcSum += analogRead(NTC_PIN);
+    delay(5);
+  }
+
+  float adcValue = adcSum / 50.0;
+
+  // ----- Convert ADC to voltage -----
+  float voltage = adcValue * VREF / ADC_RESOLUTION;
+
+  // ----- Safety check -----
+  if (voltage <= 0.001) {
+    ntcTemp = -100;   // Error value
+    return;
+  }
+
+  // ----- Calculate NTC resistance -----
+  float rNTC = FIXED_RESISTOR * (VREF - voltage) / voltage;
+
+  // ----- Beta formula -----
+  float tempK = 1.0 / ((1.0 / T0) + (1.0 / BETA) * log(rNTC / R0));
+
+  ntcTemp = tempK - 273.15;
+
+  // ----- Add offset calibration -----
+  ntcTemp = ntcTemp + OFFSET;
+}
+
+//////////////////////   AHT10   //////////////////////
+
+void calculateAHT()
+{
+  sensors_event_t humidityEvent, tempEvent;
+  if (aht.getEvent(&humidityEvent, &tempEvent)) {
+    ahtTemp = tempEvent.temperature;
+    humidity = humidityEvent.relative_humidity;
+  } else {
+    ahtTemp = -100;     // Error indicator
+    humidity = 0;
+  }
+}
+
+//////////////////////   SERIAL OUTPUT   //////////////////////
+
+void serialOutput()
+{
+  Serial.println("\n========================================");
+  Serial.println("           Sensor Data Report");
+  Serial.println("========================================");
+
+  Serial.printf("NTC Temperature  : %6.2f °C\n", ntcTemp);
+  Serial.printf("AHT Temperature  : %6.2f °C\n", ahtTemp);
+  Serial.printf("Humidity         : %6.2f %%\n", humidity);
+
+  Serial.println("----------------------------------------");
+
+  // Optional comparison
+  float tempDiff = ntcTemp - ahtTemp;
+  Serial.printf("Temp Difference  : %6.2f °C\n", tempDiff);
+
+  Serial.println("========================================\n");
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(NTC_PIN, INPUT);
@@ -558,4 +629,10 @@ void setup() {
   delay(1500);
 }
 
-void loop() {}
+void loop() {
+  calculateNTC();
+  calculateAHT();
+  serialOutput();
+  delay(1000);
+
+}
