@@ -120,6 +120,53 @@
         color: #001bff;
       }
 
+      /* Toggle Switch */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 55px;
+        height: 28px;
+        margin-top: 10px;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        background-color: #ccc;
+        border-radius: 34px;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transition: 0.4s;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        border-radius: 50%;
+        transition: 0.4s;
+      }
+
+      input:checked + .slider {
+        background-color: #5d009c;
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(26px);
+      }
+
       /* Button */
       button {
         margin-top: 30px;
@@ -182,13 +229,6 @@
         <div class="section">
           <h2>Temperature Settings</h2>
 
-          <!-- <label>Temperature Unit</label>
-          <select>
-            <option>Celsius (°C)</option>
-            <option>Fahrenheit (°F)</option>
-            <option>Kelvin (K)</option>
-          </select> -->
-
           <label>Temperature Precision</label>
           <select>
             <option>None</option>
@@ -202,6 +242,9 @@
             <option>Up to 1 Decimal</option>
             <option>Up to 2 Decimals</option>
           </select>
+
+          <label>Reading Interval (seconds)</label>
+          <input type="number" min="1" value="1" />
         </div>
 
         <!-- NTC -->
@@ -216,6 +259,9 @@
 
           <label>NTC Offset (°C)</label>
           <input type="number" step="0.1" value="0" />
+
+          <label>Reading Interval (seconds)</label>
+          <input type="number" min="1" value="1" />
         </div>
 
         <!-- LUX -->
@@ -256,11 +302,20 @@
               </div>
             </div>
           </div>
+
+          <label>Reading Interval (seconds)</label>
+          <input type="number" min="1" value="1" />
         </div>
 
         <!-- Node-RED -->
         <div class="section">
           <h2>Node-RED Settings</h2>
+
+          <label>Enable Node-RED</label>
+          <label class="switch">
+            <input type="checkbox" id="nodeRedToggle" />
+            <span class="slider"></span>
+          </label>
 
           <label>Set IP Address</label>
           <input type="text" placeholder="192.168.1.100" />
@@ -269,7 +324,7 @@
           <input type="number" placeholder="1880" />
 
           <label>Send Interval (seconds)</label>
-          <input type="number" placeholder="10" />
+          <input type="number" min="1" placeholder="10" />
         </div>
 
         <!-- Time -->
