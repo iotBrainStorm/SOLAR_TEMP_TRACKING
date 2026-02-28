@@ -403,6 +403,15 @@ void welcomeMsg() {
   u8g2.sendBuffer();
 }
 
+//////////////////////   CENTRE TEXT   //////////////////////
+
+void drawCenteredStr(int y, const char* str, const uint8_t* font) {
+  u8g2.setFont(font);
+  int16_t strWidth = u8g2.getStrWidth(str);
+  int16_t x = (128 - strWidth) / 2;
+  u8g2.drawStr(x, y, str);
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(NTC_PIN, INPUT);
@@ -415,37 +424,100 @@ void setup() {
   welcomeMsg();
   delay(2000);
 
-  // 🔴 MUST mount SPIFFS FIRST
+
+  // --- Storage Init ---
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_t0_14_tr);
+  u8g2.drawStr(0, 18, "Settings Init:");
+  u8g2.sendBuffer();
+  Serial.println("\n==============================");
+  Serial.println("Settings Initialization");
+  Serial.println("==============================");
+  Serial.println("[INFO] Initializing EEPROM...");
+  delay(1000);
+  EEPROM.begin(512);
+  // loadSettings();
+  Serial.println("[SUCCESS] EEPROM Initialized.");
+  Serial.printf("[INFO] EEPROM Size: %d bytes\n", 512);
+  Serial.println("==============================\n");
+  u8g2.clearBuffer();  // Recommended for clean update
+  u8g2.drawStr(0, 18, "Settings Init: OK");
+  u8g2.sendBuffer();
+  delay(1000);
+
+
+  // --- SPIFFS ---
+  u8g2.clearBuffer();
+  Serial.println("\n==============================");
+  Serial.println("SPIFFS Initialization");
+  Serial.println("==============================");
   if (!SPIFFS.begin(true)) {
-    Serial.println("SPIFFS Mount Failed");
-    return;
+    u8g2.drawStr(0, 18, "SPIFFS: ERROR");
+    Serial.println("[ERROR] SPIFFS Mount Failed!");
+    Serial.println("[INFO] Filesystem not available.");
+    Serial.println("==============================\n");
+
+  } else {
+    u8g2.drawStr(0, 18, "SPIFFS: OK");
+    Serial.println("[SUCCESS] SPIFFS Mounted Successfully.");
+    Serial.println("[INFO] Listing Files:");
+    Serial.println("------------------------------");
+    File root = SPIFFS.open("/");
+    File file = root.openNextFile();
+    int fileCount = 0;
+    while (file) {
+      Serial.printf("File %02d : %s  |  Size: %d bytes\n",
+                    fileCount + 1,
+                    file.name(),
+                    file.size());
+      fileCount++;
+      file = root.openNextFile();
+    }
+    Serial.println("------------------------------");
+    Serial.printf("Total Files: %d\n", fileCount);
+    Serial.println("==============================\n");
+    root.close();
   }
-  Serial.println("SPIFFS Mounted");
-  File root = SPIFFS.open("/");
-  File file = root.openNextFile();
-  while (file) {
-    Serial.println(file.name());
-    file = root.openNextFile();
+  u8g2.sendBuffer();
+  delay(1000);
+
+  // --- Sensor Init ---
+  u8g2.clearBuffer();
+  Serial.println("\n==============================");
+  Serial.println("AHT10 Sensor Initialization");
+  Serial.println("==============================");
+  Serial.println("[INFO] Checking AHT10 sensor...");
+  if (!aht.begin()) {
+    u8g2.drawStr(0, 18, "AHT10 Sensor: ERROR");
+    Serial.println("[ERROR] AHT10 not detected!");
+    Serial.println("[INFO] Check wiring (SDA/SCL) and power supply.");
+    Serial.println("==============================\n");
+  } else {
+    u8g2.drawStr(0, 18, "AHT10 Sensor: OK");
+    Serial.println("[SUCCESS] AHT10 detected successfully.");
+    Serial.println("[INFO] Sensor ready for reading");
+    Serial.println("==============================\n");
   }
+  u8g2.sendBuffer();
+  delay(1000);
+
 
   // --- WiFi Setup ---
   connectToSavedWiFi();
-  delay(500);
+  delay(1000);
 
   // --- Time Setup ---
   configDateTime();
-  delay(500);
+  delay(1000);
 
 
   // --- Server Setup ---
   if (WiFi.status() == WL_CONNECTED) {
-
     Serial.println("\n==============================");
     Serial.println("Web Server Initialization");
     Serial.println("==============================");
     Serial.println("[INFO] WiFi Connected.");
     Serial.println("[INFO] Starting Web Server...");
-
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_6x12_tf);
     u8g2.drawStr(0, 12, "Starting Server...");
@@ -458,23 +530,19 @@ void setup() {
     Serial.printf("SSID       : %s\n", WiFi.SSID().c_str());
     Serial.printf("Server IP  : %s\n", WiFi.localIP().toString().c_str());
     Serial.println("==============================\n");
-
     u8g2.clearBuffer();
     u8g2.drawStr(0, 12, "Server Started!");
     u8g2.drawStr(0, 24, "IP Address:");
     u8g2.drawStr(0, 36, WiFi.localIP().toString().c_str());
     u8g2.sendBuffer();
     delay(2000);
-
   } else {
-
     Serial.println("\n==============================");
     Serial.println("Web Server Initialization");
     Serial.println("==============================");
     Serial.println("[ERROR] WiFi not connected!");
     Serial.println("[INFO] Server will auto-start once WiFi reconnects.");
     Serial.println("==============================\n");
-
     u8g2.clearBuffer();
     u8g2.drawStr(0, 12, "WiFi Failed!");
     u8g2.drawStr(0, 24, "Will auto-start");
@@ -483,6 +551,11 @@ void setup() {
     delay(2000);
   }
 
+  // --- Ready ---
+  u8g2.clearBuffer();
+  drawCenteredStr(35, "System Ready!", u8g2_font_t0_14_tr);
+  u8g2.sendBuffer();
+  delay(1500);
 }
 
 void loop() {}
