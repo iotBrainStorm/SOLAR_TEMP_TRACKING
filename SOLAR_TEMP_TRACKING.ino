@@ -25,6 +25,9 @@
 #define OFFSET 17.29            // Adjust later (+ or -)
 #define ADC_RESOLUTION 4095.0   // 12 bits (1111 1111 1111)
 #define VREF 3.3                // Maximum sensing voltage of ESP32
+unsigned long lastNTCReadTime = 0;
+float ntcSampleSum = 0;
+uint8_t ntcSampleCount = 0;
 
 // -- Global variables for settings
 Preferences preferences;
@@ -671,38 +674,68 @@ float applyPrecision(float value, uint8_t precision) {
 
 //////////////////////   NTC   //////////////////////
 
-void calculateNTC() {
+// void calculateNTC() {
 
-  // ----- Average 50 NTC samples -----
-  float adcSum = 0;
-  for (int i = 0; i < 50; i++) {
-    adcSum += analogRead(NTC_PIN);
-    delay(5);
-  }
+//   // ----- Average 50 NTC samples -----
+//   float adcSum = 0;
+//   for (int i = 0; i < 50; i++) {
+//     adcSum += analogRead(NTC_PIN);
+//     delay(5);
+//   }
 
-  float adcValue = adcSum / 50.0;
+//   float adcValue = adcSum / 50.0;
 
-  // ----- Convert ADC to voltage -----
+//   // ----- Convert ADC to voltage -----
+//   float voltage = adcValue * VREF / ADC_RESOLUTION;
+
+//   if (voltage <= 0.001) {
+//     ntcTemp = -100;
+//     return;
+//   }
+
+//   // ----- Calculate NTC resistance -----
+//   float rNTC = FIXED_RESISTOR * (VREF - voltage) / voltage;
+
+//   // ----- Use stored settings instead of constants -----
+//   float tempK = 1.0 / ((1.0 / T0) + (1.0 / settings.betaConstant) * log(rNTC / settings.ntcResistance));
+
+//   ntcTemp = tempK - 273.15;
+
+//   // ----- Apply stored offset -----
+//   ntcTemp += settings.ntcOffset;
+
+//   // ----- Apply decimal precision setting -----
+//   ntcTemp = applyPrecision(ntcTemp, settings.tempPrecision);
+// }
+void calculateNTCFromADC(float adcValue) {
   float voltage = adcValue * VREF / ADC_RESOLUTION;
-
   if (voltage <= 0.001) {
     ntcTemp = -100;
     return;
   }
-
-  // ----- Calculate NTC resistance -----
   float rNTC = FIXED_RESISTOR * (VREF - voltage) / voltage;
-
-  // ----- Use stored settings instead of constants -----
   float tempK = 1.0 / ((1.0 / T0) + (1.0 / settings.betaConstant) * log(rNTC / settings.ntcResistance));
-
   ntcTemp = tempK - 273.15;
-
-  // ----- Apply stored offset -----
   ntcTemp += settings.ntcOffset;
-
-  // ----- Apply decimal precision setting -----
   ntcTemp = applyPrecision(ntcTemp, settings.tempPrecision);
+}
+
+void handleNTC() {
+  unsigned long currentMillis = millis();
+  // Check interval (seconds → milliseconds)
+  if (currentMillis - lastNTCReadTime >= settings.ntcInterval * 1000UL) {
+    lastNTCReadTime = currentMillis;
+    // Reset averaging
+    ntcSampleSum = 0;
+    ntcSampleCount = 0;
+    // Take 50 samples quickly (no delay)
+    for (int i = 0; i < 50; i++) {
+      ntcSampleSum += analogRead(NTC_PIN);
+    }
+    float adcValue = ntcSampleSum / 50.0;
+
+    calculateNTCFromADC(adcValue);
+  }
 }
 
 //////////////////////   AHT10   //////////////////////
@@ -970,11 +1003,11 @@ void setup() {
 }
 
 void loop() {
-  calculateNTC();
-  calculateAHT();
-  calculateLUX();
-  calculateSunlightPercentage();
-  serialOutput();
+  handleNTC();
+  // calculateAHT();
+  // calculateLUX();
+  // calculateSunlightPercentage();
+  // serialOutput();
   displaySensorValues();
-  delay(1000);
+  // delay(1000);
 }
