@@ -82,6 +82,10 @@ const int daylightOffset_sec = 0;
 AsyncWebServer server(80);
 bool webServerStarted = false;
 
+// -- Node-Red
+bool nodeRedConnected = false;
+String lastNodeRedResponse = "";
+
 // -- Welcome Message
 const char MSG_WELCOME[] PROGMEM = "ESP";
 const char MSG_SUBTITLE[] PROGMEM = "SOLAR - TEM";
@@ -734,7 +738,6 @@ void handleNTC() {
       ntcSampleSum += analogRead(NTC_PIN);
     }
     float adcValue = ntcSampleSum / 50.0;
-
     calculateNTCFromADC(adcValue);
   }
 }
@@ -795,6 +798,102 @@ void calculateSunlightPercentage() {
   }
 }
 
+//////////////////////   NODE RED SHARE   //////////////////////
+
+void sendDataToNodeRed() {
+
+  static unsigned long lastUpdate = 0;
+
+  if (millis() - lastUpdate < (settings.nodeRedInterval * 1000UL)) return;
+  lastUpdate = millis();
+
+  Serial.println(F("\n[Node-RED] Send attempt started"));
+
+  // Check enabled
+  if (!settings.enableNodeRed) {
+    Serial.println(F("[Node-RED] Disabled in settings"));
+    return;
+  }
+
+  // Check WiFi
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println(F("[Node-RED] WiFi not connected"));
+    return;
+  }
+
+  // Build URL
+  String url = "http://" + settings.nodeRedIP + ":" + String(settings.nodeRedPort) + "/solar-data";
+
+  Serial.print(F("[Node-RED] URL: "));
+  Serial.println(url);
+
+  HTTPClient http;
+  http.begin(url);
+  http.setTimeout(5000);
+  http.addHeader("Content-Type", "application/json");
+
+  // // Create JSON payload
+  // String jsonPayload = "{";
+  // jsonPayload += "\"ntcTemp\":" + String(ntcTemp, (int)settings.tempPrecision) + ",";
+  // jsonPayload += "\"ahtTemp\":" + String(ahtTemp, (int)settings.tempPrecision) + ",";
+  // jsonPayload += "\"humidity\":" + String(humidity, (int)settings.humidityPrecision) + ",";
+  // jsonPayload += "\"lux\":" + String(luxValue, 1) + ",";
+  // jsonPayload += "\"sunlight\":" + String(sunlightPercentage, 1);
+  // jsonPayload += "}";
+
+  // Serial.print(F("[Node-RED] Payload: "));
+  // Serial.println(jsonPayload);
+
+  // // Send POST
+  // int httpResponseCode = http.POST(jsonPayload);
+
+
+  char jsonPayload[256];
+  float safeLux = luxValue;
+  float safeSun = sunlightPercentage;
+  if (isnan(safeLux)) safeLux = 0.0;
+  if (isnan(safeSun)) safeSun = 0.0;
+  snprintf(jsonPayload, sizeof(jsonPayload),
+           "{\"ntcTemp\":%.*f,"
+           "\"ahtTemp\":%.*f,"
+           "\"humidity\":%.*f,"
+           "\"lux\":%.1f,"
+           "\"sunlight\":%.1f}",
+           settings.tempPrecision, ntcTemp,
+           settings.tempPrecision, ahtTemp,
+           settings.humidityPrecision, humidity,
+           safeLux,
+           safeSun);
+  Serial.print("[Node-RED] Payload: ");
+  Serial.println(jsonPayload);
+  int httpResponseCode = http.POST((uint8_t*)jsonPayload, strlen(jsonPayload));
+
+
+
+
+
+  Serial.print(F("[Node-RED] HTTP Response code: "));
+  Serial.println(httpResponseCode);
+
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.print(F("[Node-RED] Response body: "));
+    Serial.println(response);
+
+    nodeRedConnected = true;
+    lastNodeRedResponse = String(httpResponseCode);
+  } else {
+    Serial.print(F("[Node-RED] Error: "));
+    Serial.println(http.errorToString(httpResponseCode));
+
+    nodeRedConnected = false;
+    lastNodeRedResponse = http.errorToString(httpResponseCode);
+  }
+
+  http.end();
+  Serial.println(F("[Node-RED] Send attempt finished"));
+}
+
 //////////////////////   SERIAL OUTPUT   //////////////////////
 
 void serialOutput() {
@@ -824,12 +923,12 @@ void displaySensorValues() {
 
   // NTC Temperature
   char ntcStr[20];
-  snprintf(ntcStr, sizeof(ntcStr), "NTC: %.2f C", ntcTemp);
+  snprintf(ntcStr, sizeof(ntcStr), "NTC: %.2fC", ntcTemp);
   u8g2.drawStr(0, 12, ntcStr);
 
   // AHT Temperature
   char ahtStr[20];
-  snprintf(ahtStr, sizeof(ahtStr), "AHT: %.2f C", ahtTemp);
+  snprintf(ahtStr, sizeof(ahtStr), "AHT: %.2fC", ahtTemp);
   u8g2.drawStr(0, 24, ahtStr);
 
   // Humidity
@@ -1025,10 +1124,12 @@ void setup() {
 void loop() {
   handleNTC();
   handleAHT();
+  // calculateNTC();
   // calculateAHT();
-  // calculateLUX();
-  // calculateSunlightPercentage();
+  calculateLUX();
+  calculateSunlightPercentage();
   // serialOutput();
   displaySensorValues();
+  sendDataToNodeRed();
   // delay(1000);
 }
