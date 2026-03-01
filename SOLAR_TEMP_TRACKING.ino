@@ -642,9 +642,37 @@ void drawCenteredStr(int y, const char* str, const uint8_t* font) {
   u8g2.drawStr(x, y, str);
 }
 
+//////////////////////   CALCULATE PRECISION   //////////////////////
+
+float applyPrecision(float value, uint8_t precision) {
+  if (precision == 0) return round(value);
+  if (precision == 1) return round(value * 10.0) / 10.0;
+  if (precision == 2) return round(value * 100.0) / 100.0;
+  return value;
+}
+
+// String formatByPrecision(float value, uint8_t precision) {
+
+//   if (precision == 0) {
+//     return String((int)round(value));   // Integer rounding
+//   }
+
+//   if (precision == 1) {
+//     return String(value, 1);
+//   }
+
+//   if (precision == 2) {
+//     return String(value, 2);
+//   }
+
+//   // fallback safety
+//   return String(value, 2);
+// }
+
 //////////////////////   NTC   //////////////////////
 
 void calculateNTC() {
+
   // ----- Average 50 NTC samples -----
   float adcSum = 0;
   for (int i = 0; i < 50; i++) {
@@ -657,22 +685,24 @@ void calculateNTC() {
   // ----- Convert ADC to voltage -----
   float voltage = adcValue * VREF / ADC_RESOLUTION;
 
-  // ----- Safety check -----
   if (voltage <= 0.001) {
-    ntcTemp = -100;  // Error value
+    ntcTemp = -100;
     return;
   }
 
   // ----- Calculate NTC resistance -----
   float rNTC = FIXED_RESISTOR * (VREF - voltage) / voltage;
 
-  // ----- Beta formula -----
-  float tempK = 1.0 / ((1.0 / T0) + (1.0 / BETA) * log(rNTC / R0));
+  // ----- Use stored settings instead of constants -----
+  float tempK = 1.0 / ((1.0 / T0) + (1.0 / settings.betaConstant) * log(rNTC / settings.ntcResistance));
 
   ntcTemp = tempK - 273.15;
 
-  // ----- Add offset calibration -----
-  ntcTemp = ntcTemp + OFFSET;
+  // ----- Apply stored offset -----
+  ntcTemp += settings.ntcOffset;
+
+  // ----- Apply decimal precision setting -----
+  ntcTemp = applyPrecision(ntcTemp, settings.tempPrecision);
 }
 
 //////////////////////   AHT10   //////////////////////
