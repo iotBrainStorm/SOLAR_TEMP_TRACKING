@@ -61,6 +61,7 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 // -- Temperature and Humidity sensor setup
 Adafruit_AHT10 aht;
+unsigned long lastAHTReadTime = 0;
 
 // -- Light sensor (LUX) setup
 BH1750 lightMeter;
@@ -740,14 +741,33 @@ void handleNTC() {
 
 //////////////////////   AHT10   //////////////////////
 
-void calculateAHT() {
-  sensors_event_t humidityEvent, tempEvent;
-  if (aht.getEvent(&humidityEvent, &tempEvent)) {
-    ahtTemp = tempEvent.temperature;
-    humidity = humidityEvent.relative_humidity;
-  } else {
-    ahtTemp = -100;  // Error indicator
-    humidity = 0;
+// void calculateAHT() {
+//   sensors_event_t humidityEvent, tempEvent;
+//   if (aht.getEvent(&humidityEvent, &tempEvent)) {
+//     ahtTemp = tempEvent.temperature;
+//     humidity = humidityEvent.relative_humidity;
+//   } else {
+//     ahtTemp = -100;  // Error indicator
+//     humidity = 0;
+//   }
+// }
+void handleAHT() {
+  unsigned long currentMillis = millis();
+  // Check interval (seconds → milliseconds)
+  if (currentMillis - lastAHTReadTime >= settings.ahtInterval * 1000UL) {
+    lastAHTReadTime = currentMillis;
+    sensors_event_t humidityEvent, tempEvent;
+    if (aht.getEvent(&humidityEvent, &tempEvent)) {
+      // Raw values
+      float rawTemp = tempEvent.temperature;
+      float rawHumidity = humidityEvent.relative_humidity;
+      // Apply precision from settings
+      ahtTemp = applyPrecision(rawTemp, settings.tempPrecision);
+      humidity = applyPrecision(rawHumidity, settings.humidityPrecision);
+    } else {
+      ahtTemp = -100;  // Error indicator
+      humidity = 0;
+    }
   }
 }
 
@@ -1004,6 +1024,7 @@ void setup() {
 
 void loop() {
   handleNTC();
+  handleAHT();
   // calculateAHT();
   // calculateLUX();
   // calculateSunlightPercentage();
