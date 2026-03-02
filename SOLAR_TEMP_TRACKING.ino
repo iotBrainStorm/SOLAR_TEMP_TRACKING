@@ -93,6 +93,7 @@ bool webServerStarted = false;
 // -- Node-Red
 bool nodeRedConnected = false;
 String lastNodeRedResponse = "";
+int httpResponseCode;
 
 // -- Welcome Message
 const char MSG_WELCOME[] PROGMEM = "ESP";
@@ -972,7 +973,7 @@ void sendDataToNodeRed() {
            safeSun);
   Serial.print("[Node-RED] Payload: ");
   Serial.println(jsonPayload);
-  int httpResponseCode = http.POST((uint8_t*)jsonPayload, strlen(jsonPayload));
+  httpResponseCode = http.POST((uint8_t*)jsonPayload, strlen(jsonPayload));
 
 
 
@@ -1035,46 +1036,76 @@ void serialOutput() {
 //////////////////////   DISPLAY LCD   //////////////////////
 
 void displayLCD() {
+
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x12_tf);
 
-  // NTC Temperature
+  // ================= TIME =================
+  struct tm timeinfo;
+  bool hasTime = getLocalTime(&timeinfo);
+
+  char timeStr[6] = "--:--";
+  if (hasTime) {
+    if (settings.clockFormat == 12) {
+      strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);
+    } else {
+      strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
+    }
+  }
+
+  // Draw Time (Top Right)
+  u8g2.drawStr(78, 12, timeStr);
+
+  // ================= WIFI RSSI =================
+  int rssi = WiFi.RSSI();  // e.g., -40 strong, -90 weak
+  char wifiStr[15];
+
+  if (WiFi.isConnected()) {
+    snprintf(wifiStr, sizeof(wifiStr), "W:%ddBm", rssi);
+  } else {
+    snprintf(wifiStr, sizeof(wifiStr), "W:Disc");
+  }
+
+  u8g2.drawStr(78, 24, wifiStr);
+
+  // ================= SENSOR VALUES =================
+
   char ntcStr[20];
-  snprintf(ntcStr, sizeof(ntcStr), "NTC: %.2fC", ntcTemp);
+  snprintf(ntcStr, sizeof(ntcStr), "SLR: %.2fC", ntcTemp);
   u8g2.drawStr(0, 12, ntcStr);
 
-  // AHT Temperature
   char ahtStr[20];
-  snprintf(ahtStr, sizeof(ahtStr), "AHT: %.2fC", ahtTemp);
+  snprintf(ahtStr, sizeof(ahtStr), "SRR: %.2fC", ahtTemp);
   u8g2.drawStr(0, 24, ahtStr);
 
-  // Humidity
   char humStr[20];
-  snprintf(humStr, sizeof(humStr), "HUM: %.2f%%", humidity);
+  snprintf(humStr, sizeof(humStr), "HUM: %.1f%%", humidity);
   u8g2.drawStr(0, 36, humStr);
+
+  // Divider line
+  u8g2.drawHLine(0, 40, 128);
 
   // Lux
   char luxStr[20];
   snprintf(luxStr, sizeof(luxStr), "LUX: %lu", luxValue);
-  u8g2.drawStr(0, 48, luxStr);
+  u8g2.drawStr(0, 52, luxStr);
 
-  // Sunlight Percentage
+  // Sunlight %
   char sunStr[20];
   snprintf(sunStr, sizeof(sunStr), "SUN: %u%%", sunlightPercentage);
-  u8g2.drawStr(0, 60, sunStr);
+  u8g2.drawStr(0, 64, sunStr);
 
-  // Time
-  struct tm timeinfo;
-  bool hasTime = getLocalTime(&timeinfo);
-  char timeStr[6] = "--:--";  // HH:MM only
-  if (hasTime) {
-    if (settings.clockFormat == 12) {
-      strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);  // 12-hour
-    } else {
-      strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);  // 24-hour
-    }
-    u8g2.drawStr(78, 12, timeStr);
+  // ================= NODE-RED STATUS =================
+  char nrStr[25];
+
+  if (lastNodeRedResponse.length() > 0) {
+    String responseCodeString = String(httpResponseCode);
+    snprintf(nrStr, sizeof(nrStr), "NR: %s", responseCodeString.c_str());
+  } else {
+    snprintf(nrStr, sizeof(nrStr), "NR: --");
   }
+
+  u8g2.drawStr(70, 64, nrStr);
 
   u8g2.sendBuffer();
 }
