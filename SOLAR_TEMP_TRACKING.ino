@@ -1043,55 +1043,35 @@ void displayLCD() {
   u8g2.setFont(u8g2_font_6x12_tf);
 
   // ================= TIME WITH BLINK =================
-  // struct tm timeinfo;
-  // bool hasTime = getLocalTime(&timeinfo);
-
-  // char timeStr[6] = "--:--";
-  // if (hasTime) {
-  //   if (settings.clockFormat == 12) {
-  //     strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);
-  //   } else {
-  //     strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
-  //   }
-  // }
-
-  // // Draw Time (Top Right)
-  // u8g2.drawStr(78, 12, timeStr);
-
   struct tm timeinfo;
   bool hasTime = getLocalTime(&timeinfo);
 
   char timeStr[6] = "--:--";
 
   if (hasTime) {
-
     if (millis() - lastBlink > 1000) {
       colonState = !colonState;
       lastBlink = millis();
     }
-
     if (settings.clockFormat == 12)
       strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);
     else
       strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
-
     if (!colonState)
       timeStr[2] = ' ';  // Blink colon
   }
 
-  u8g2.drawStr(78, 12, timeStr);
+  u8g2.drawStr(77, 12, timeStr);
 
   // ================= WIFI RSSI =================
   int rssi = WiFi.RSSI();  // e.g., -40 strong, -90 weak
   char wifiStr[15];
-
   if (WiFi.isConnected()) {
     snprintf(wifiStr, sizeof(wifiStr), "W:%ddBm", rssi);
   } else {
     snprintf(wifiStr, sizeof(wifiStr), "W:Disc");
   }
-
-  u8g2.drawStr(78, 24, wifiStr);
+  u8g2.drawStr(77, 24, wifiStr);
 
   // ================= SENSOR VALUES =================
 
@@ -1115,130 +1095,27 @@ void displayLCD() {
   snprintf(luxStr, sizeof(luxStr), "LUX: %lu", luxValue);
   u8g2.drawStr(0, 52, luxStr);
 
-  // Sunlight %
+  // Sunlight % PROGRESS BAR
   char sunStr[20];
   snprintf(sunStr, sizeof(sunStr), "SUN: %u%%", sunlightPercentage);
   u8g2.drawStr(0, 64, sunStr);
+  int barWidth = map(sunlightPercentage, 0, 100, 0, 60);
+  u8g2.drawFrame(64, 56, 64, 8);      // Frame
+  u8g2.drawBox(66, 58, barWidth, 4);  // Fill
+
 
   // ================= NODE-RED STATUS =================
   char nrStr[25];
-
   if (lastNodeRedResponse.length() > 0) {
     String responseCodeString = String(httpResponseCode);
     snprintf(nrStr, sizeof(nrStr), "NR: %s", responseCodeString.c_str());
   } else {
     snprintf(nrStr, sizeof(nrStr), "NR: --");
   }
-
-  // u8g2.drawStr(70, 64, nrStr);
-  u8g2.drawStr(78, 36, nrStr);
+  u8g2.drawStr(77, 36, nrStr);
 
   u8g2.sendBuffer();
 }
-
-
-// void displayLCD() {
-
-//   u8g2.clearBuffer();
-//   u8g2.setFont(u8g2_font_6x12_tf);
-
-//   // ================= TIME WITH BLINK =================
-//   struct tm timeinfo;
-//   bool hasTime = getLocalTime(&timeinfo);
-
-//   char timeStr[6] = "--:--";
-
-//   if (hasTime) {
-
-//     if (millis() - lastBlink > 1000) {
-//       colonState = !colonState;
-//       lastBlink = millis();
-//     }
-
-//     if (settings.clockFormat == 12)
-//       strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);
-//     else
-//       strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
-
-//     if (!colonState)
-//       timeStr[2] = ' ';  // Blink colon
-//   }
-
-//   u8g2.drawStr(78, 12, timeStr);
-
-//   // ================= WIFI SIGNAL AS % =================
-//   int wifiPercent = 0;
-
-//   if (WiFi.isConnected()) {
-//     int rssi = WiFi.RSSI();  // -30 to -90 typical
-//     wifiPercent = map(rssi, -90, -30, 0, 100);
-//     wifiPercent = constrain(wifiPercent, 0, 100);
-//   }
-
-//   // ================= WIFI ICON + BARS =================
-//   if (WiFi.isConnected()) {
-
-//     // Small WiFi base icon
-//     u8g2.drawCircle(105, 20, 2);
-//     u8g2.drawCircle(105, 20, 4, U8G2_DRAW_UPPER_RIGHT);
-//     u8g2.drawCircle(105, 20, 6, U8G2_DRAW_UPPER_RIGHT);
-
-//     // Signal bars
-//     int bars = wifiPercent / 25;  // 0–4 bars
-
-//     for (int i = 0; i < bars; i++) {
-//       u8g2.drawBox(115 + (i * 3), 22 - (i * 2), 2, 3 + (i * 2));
-//     }
-//   }
-
-//   // ================= SENSOR VALUES =================
-//   char ntcStr[20];
-//   snprintf(ntcStr, sizeof(ntcStr), "SLR: %.1fC", ntcTemp);
-//   u8g2.drawStr(0, 12, ntcStr);
-
-//   char ahtStr[20];
-//   snprintf(ahtStr, sizeof(ahtStr), "SRR: %.1fC", ahtTemp);
-//   u8g2.drawStr(0, 24, ahtStr);
-
-//   char humStr[20];
-//   snprintf(humStr, sizeof(humStr), "HUM: %.1f%%", humidity);
-//   u8g2.drawStr(0, 36, humStr);
-
-//   // Divider
-//   u8g2.drawHLine(0, 40, 128);
-
-//   // Lux
-//   char luxStr[20];
-//   snprintf(luxStr, sizeof(luxStr), "LUX: %lu", luxValue);
-//   u8g2.drawStr(0, 52, luxStr);
-
-//   // ================= SUNLIGHT PROGRESS BAR =================
-//   int barWidth = map(sunlightPercentage, 0, 100, 0, 60);
-
-//   u8g2.drawFrame(0, 54, 64, 8);      // Frame
-//   u8g2.drawBox(2, 56, barWidth, 4);  // Fill
-
-//   char sunStr[10];
-//   snprintf(sunStr, sizeof(sunStr), "%u%%", sunlightPercentage);
-//   u8g2.drawStr(70, 60, sunStr);
-
-//   // ================= NODE-RED HEARTBEAT =================
-//   static bool heartbeat = false;
-
-//   if (millis() % 1000 < 500)
-//     heartbeat = true;
-//   else
-//     heartbeat = false;
-
-//   if (lastNodeRedResponse.length() > 0) {
-//     if (heartbeat)
-//       u8g2.drawDisc(115, 60, 3);  // Solid dot
-//     else
-//       u8g2.drawCircle(115, 60, 3);  // Hollow
-//   }
-
-//   u8g2.sendBuffer();
-// }
 
 //////////////////////   SETUP   //////////////////////
 
