@@ -1042,20 +1042,43 @@ void displayLCD() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x12_tf);
 
-  // ================= TIME =================
+  // ================= TIME WITH BLINK =================
+  // struct tm timeinfo;
+  // bool hasTime = getLocalTime(&timeinfo);
+
+  // char timeStr[6] = "--:--";
+  // if (hasTime) {
+  //   if (settings.clockFormat == 12) {
+  //     strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);
+  //   } else {
+  //     strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
+  //   }
+  // }
+
+  // // Draw Time (Top Right)
+  // u8g2.drawStr(78, 12, timeStr);
+
   struct tm timeinfo;
   bool hasTime = getLocalTime(&timeinfo);
 
   char timeStr[6] = "--:--";
+
   if (hasTime) {
-    if (settings.clockFormat == 12) {
-      strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);
-    } else {
-      strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
+
+    if (millis() - lastBlink > 1000) {
+      colonState = !colonState;
+      lastBlink = millis();
     }
+
+    if (settings.clockFormat == 12)
+      strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);
+    else
+      strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
+
+    if (!colonState)
+      timeStr[2] = ' ';  // Blink colon
   }
 
-  // Draw Time (Top Right)
   u8g2.drawStr(78, 12, timeStr);
 
   // ================= WIFI RSSI =================
