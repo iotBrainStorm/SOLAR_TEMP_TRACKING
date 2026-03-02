@@ -65,6 +65,11 @@ unsigned long lastAHTReadTime = 0;
 
 // -- Light sensor (LUX) setup
 BH1750 lightMeter;
+unsigned long lastLuxReadTime = 0;
+unsigned long lastLuxSaveTime = 0;
+float luxFiltered = 0;  // EMA filtered value
+bool luxInitialized = false;
+;
 
 // -- Sensor Values Storage
 float ntcTemp = 0.0;
@@ -72,6 +77,9 @@ float ahtTemp = 0.0;
 float humidity = 0.0;
 uint32_t luxValue = 0;
 uint8_t sunlightPercentage = 0;
+
+// -- Serial Output
+unsigned long lastSerialPrint = 0;
 
 // -- Time Management
 const char* ntpServer = "pool.ntp.org";
@@ -774,6 +782,104 @@ void handleAHT() {
   }
 }
 
+//////////////////////   CALCULATE LUX   //////////////////////
+
+void handleLUX() {
+  unsigned long currentMillis = millis();
+
+  // ---- Interval Control ----
+  if (currentMillis - lastLuxReadTime < settings.luxInterval * 1000UL) return;
+  lastLuxReadTime = currentMillis;
+
+  // ---- Read Sensor ----
+  // luxValue = bh1750.readLightLevel();
+
+  // ---- Fake Readings ----
+  static float angle = 0;
+  angle += 0.05;
+  luxValue = 60000 + 60000 * sin(angle);
+  if (luxValue < 0) luxValue = 0;
+
+  // ---- First Time Filter Init ----
+  if (!luxInitialized) {
+    luxFiltered = luxValue;
+    luxInitialized = true;
+  }
+
+  // ---- EMA Filter ----
+  luxFiltered = (luxFiltered * 0.8f) + (luxValue * 0.2f);
+
+  // ==========================================================
+  // ====================== AUTO MODE =========================
+  // ==========================================================
+  if (settings.luxPercentageMode == 0) {
+
+    const uint32_t threshold = 200;        // Min change to update
+    const uint32_t saveInterval = 300000;  // 5 min EEPROM safety
+
+    bool updated = false;
+
+    // Update MAX
+    if (luxFiltered > settings.maxLuxValue + threshold) {
+      settings.maxLuxValue = (uint32_t)luxFiltered;
+      updated = true;
+    }
+
+    // Update MIN
+    if (luxFiltered + threshold < settings.minLuxValue) {
+      settings.minLuxValue = (uint32_t)luxFiltered;
+      updated = true;
+    }
+
+    // EEPROM Save Protection
+    if (updated && (currentMillis - lastLuxSaveTime > saveInterval)) {
+      saveSettings();
+      lastLuxSaveTime = currentMillis;
+      Serial.println("[LUX] AUTO: Min/Max updated & saved");
+    }
+  }
+
+  // ==========================================================
+  // ===================== MANUAL MODE ========================
+  // ==========================================================
+  else if (settings.luxPercentageMode == 1) {
+
+    // Do nothing with min/max
+    // Just use stored calibration values
+    // No EEPROM write
+
+    Serial.println("[LUX] MANUAL mode active");
+  }
+
+  // ==========================================================
+  // ================== PERCENTAGE CALC =======================
+  // ==========================================================
+
+  uint32_t minLux = settings.minLuxValue;
+  uint32_t maxLux = settings.maxLuxValue;
+
+  if (maxLux > minLux) {
+
+    float percent = ((luxFiltered - minLux) * 100.0f) / (float)(maxLux - minLux);
+
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
+
+    sunlightPercentage = (uint8_t)percent;
+
+  } else {
+    sunlightPercentage = 0;  // safety
+  }
+
+  // // Debug
+  // Serial.print("[LUX] Raw: ");
+  // Serial.print(luxValue);
+  // Serial.print(" | Filtered: ");
+  // Serial.print(luxFiltered);
+  // Serial.print(" | Sunlight: ");
+  // Serial.println(sunlightPercentage);
+}
+
 //////////////////////   BH1750   //////////////////////
 
 void calculateLUX() {
@@ -897,6 +1003,13 @@ void sendDataToNodeRed() {
 //////////////////////   SERIAL OUTPUT   //////////////////////
 
 void serialOutput() {
+
+  unsigned long currentMillis = millis();
+
+  // Run every 1 second (1000 ms)
+  if (currentMillis - lastSerialPrint < 1000) return;
+  lastSerialPrint = currentMillis;
+
   Serial.println("\n========================================");
   Serial.println("           Sensor Data Report");
   Serial.println("========================================");
@@ -904,7 +1017,11 @@ void serialOutput() {
   Serial.printf("NTC Temperature  : %8.2f °C\n", ntcTemp);
   Serial.printf("AHT Temperature  : %8.2f °C\n", ahtTemp);
   Serial.printf("Humidity         : %8.2f %%\n", humidity);
+
+  Serial.println("----------------------------------------");
+
   Serial.printf("Light Intensity  : %8lu lux\n", luxValue);
+  Serial.printf("Filtered Lux     : %8.2f lux\n", luxFiltered);
   Serial.printf("Sunlight Level   : %8u %%\n", sunlightPercentage);
 
   Serial.println("----------------------------------------");
@@ -1126,9 +1243,10 @@ void loop() {
   handleAHT();
   // calculateNTC();
   // calculateAHT();
-  calculateLUX();
-  calculateSunlightPercentage();
-  // serialOutput();
+  // calculateLUX();
+  // calculateSunlightPercentage();
+  handleLUX();
+  serialOutput();
   displaySensorValues();
   sendDataToNodeRed();
   // delay(1000);
