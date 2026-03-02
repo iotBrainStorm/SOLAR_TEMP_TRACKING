@@ -392,7 +392,7 @@ void configDateTime() {
     u8g2.drawStr(0, 24, attemptStr);
     u8g2.sendBuffer();
 
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    configTime(settings.gmtOffset, daylightOffset_sec, ntpServer);
 
     start = millis();
     while (millis() - start < 1000) yield();
@@ -1026,7 +1026,7 @@ void serialOutput() {
 
   Serial.println("----------------------------------------");
 
-  float tempDiff = ntcTemp - ahtTemp;
+  float tempDiff = fabs(ntcTemp - ahtTemp);
   Serial.printf("Temp Difference  : %8.2f °C\n", tempDiff);
 
   Serial.println("========================================\n");
@@ -1034,7 +1034,7 @@ void serialOutput() {
 
 //////////////////////   DISPLAY LCD   //////////////////////
 
-void displaySensorValues() {
+void displayLCD() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x12_tf);
 
@@ -1062,6 +1062,19 @@ void displaySensorValues() {
   char sunStr[20];
   snprintf(sunStr, sizeof(sunStr), "SUN: %u%%", sunlightPercentage);
   u8g2.drawStr(0, 60, sunStr);
+
+  // Time
+  struct tm timeinfo;
+  bool hasTime = getLocalTime(&timeinfo);
+  char timeStr[6] = "--:--";  // HH:MM only
+  if (hasTime) {
+    if (settings.clockFormat == 12) {
+      strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);  // 12-hour
+    } else {
+      strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);  // 24-hour
+    }
+    u8g2.drawStr(78, 12, timeStr);
+  }
 
   u8g2.sendBuffer();
 }
@@ -1247,7 +1260,8 @@ void loop() {
   // calculateSunlightPercentage();
   handleLUX();
   serialOutput();
-  displaySensorValues();
+  displayLCD();
+
   sendDataToNodeRed();
   // delay(1000);
 }
