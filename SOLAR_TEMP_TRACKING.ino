@@ -71,7 +71,8 @@ unsigned long lastLuxReadTime = 0;
 unsigned long lastLuxSaveTime = 0;
 float luxFiltered = 0;  // EMA filtered value
 bool luxInitialized = false;
-;
+float previousLux = 0;
+long luxDiff = 0;
 
 // -- Sensor Values Storage
 float ntcTemp = 0.0;
@@ -812,6 +813,9 @@ void handleLUX() {
   // ---- EMA Filter ----
   luxFiltered = (luxFiltered * 0.8f) + (luxValue * 0.2f);
 
+  luxDiff = (long)(luxFiltered - previousLux);
+  previousLux = luxFiltered;
+
   // ==========================================================
   // ====================== AUTO MODE =========================
   // ==========================================================
@@ -1055,28 +1059,8 @@ void displayLCD() {
   }
   u8g2.drawStr(77, 12, timeStr);
 
-  // struct tm timeinfo;
-  // bool hasTime = getLocalTime(&timeinfo);
-
-  // char timeStr[6] = "--:--";
-
-  // if (hasTime) {
-  //   if (millis() - lastBlink > 1000) {
-  //     colonState = !colonState;
-  //     lastBlink = millis();
-  //   }
-  //   if (settings.clockFormat == 12)
-  //     strftime(timeStr, sizeof(timeStr), "%I:%M", &timeinfo);
-  //   else
-  //     strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
-  //   if (!colonState)
-  //     timeStr[2] = ' ';  // Blink colon
-  // }
-
-  // u8g2.drawStr(77, 12, timeStr);
-
   // ================= WIFI RSSI =================
-  int rssi = WiFi.RSSI();  // e.g., -40 strong, -90 weak
+  int rssi = WiFi.isConnected() ? WiFi.RSSI() : -99;  // e.g., -40 strong, -90 weak
   char wifiStr[15];
   if (WiFi.isConnected()) {
     snprintf(wifiStr, sizeof(wifiStr), "W:%ddBm", rssi);
@@ -1107,13 +1091,22 @@ void displayLCD() {
   snprintf(luxStr, sizeof(luxStr), "LUX: %lu", luxValue);
   u8g2.drawStr(0, 52, luxStr);
 
+  // Difference string
+  char diffStr[12];
+  if (luxDiff > 0)
+    snprintf(diffStr, sizeof(diffStr), "+%ld", luxDiff);
+  else
+    snprintf(diffStr, sizeof(diffStr), "%ld", luxDiff);
+  u8g2.drawStr(83, 52, diffStr);  // Adjust X if needed
+
   // Sunlight % PROGRESS BAR
   char sunStr[20];
   snprintf(sunStr, sizeof(sunStr), "SUN: %u%%", sunlightPercentage);
   u8g2.drawStr(0, 64, sunStr);
   int barWidth = map(sunlightPercentage, 0, 100, 0, 60);
-  u8g2.drawFrame(64, 56, 64, 8);      // Frame
-  u8g2.drawBox(66, 58, barWidth, 4);  // Fill
+  barWidth = constrain(barWidth, 0, 60);  // Prevent overflow
+  u8g2.drawFrame(64, 56, 64, 8);          // Frame
+  u8g2.drawBox(66, 58, barWidth, 4);      // Fill
 
 
   // ================= NODE-RED STATUS =================
