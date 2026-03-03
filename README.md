@@ -121,7 +121,7 @@ If you want, I can generate a clean professional circuit diagram layout for you.
 
 📺 Watch Full Working Demo Here:
 
-👉 [Your YouTube Video Link Here]
+👉 [Watch the YouTube Demo](https://youtu.be/oVlurzfXVxU)
 
 🧠 System Architecture
 
