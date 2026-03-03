@@ -640,6 +640,89 @@ void setupWebServer() {
   webServerStarted = true;
 }
 
+
+//////////////////////   SERVER RECONNECT   //////////////////////
+
+
+void checkWiFiAndStartServer() {
+  static unsigned long lastCheck = 0;
+  static bool wasConnected = false;
+  static unsigned long lastReconnectAttempt = 0;
+
+  if (millis() - lastCheck < 3000) return;  // Check every 3s
+  lastCheck = millis();
+
+  bool isConnected = (WiFi.status() == WL_CONNECTED);
+
+  // ===============================
+  // 🔵 WiFi Just Connected
+  // ===============================
+  if (isConnected && !wasConnected) {
+
+    Serial.println("WiFi connected!");
+
+    // Start Web Server
+    if (!webServerStarted) {
+      Serial.println("Starting WebServer...");
+      setupWebServer();  // must include server.begin()
+      webServerStarted = true;
+    }
+
+    //   // Start Firebase task
+    //   if (fbSettings.enabled && strlen(fbSettings.host) > 0 && firebaseTask == NULL) {
+    //     Serial.println("Starting Firebase task...");
+    //     xTaskCreatePinnedToCore(
+    //       firebaseTaskFunction,
+    //       "FirebaseTask",
+    //       8192,
+    //       NULL,
+    //       1,
+    //       &firebaseTask,
+    //       0);
+    //   }
+
+    //   // Optional: show reconnect success on OLED
+    //   if (!menuActive) {
+    //     displayStatusbar();
+    //   }
+    // }
+
+    // ===============================
+    // 🔴 WiFi Lost
+    // ===============================
+    if (!isConnected && wasConnected) {
+
+      Serial.println("WiFi disconnected!");
+
+      // // Stop Firebase task
+      // if (firebaseTask != NULL) {
+      //   vTaskDelete(firebaseTask);
+      //   firebaseTask = NULL;
+      //   Serial.println("Firebase task stopped");
+      // }
+
+      webServerStarted = false;  // allow restart after reconnection
+    }
+
+    // ===============================
+    // 🟡 Attempt Reconnect
+    // ===============================
+    if (!isConnected) {
+
+      if (millis() - lastReconnectAttempt > 20000) {  // every 20 sec
+        lastReconnectAttempt = millis();
+
+        Serial.println("Attempting WiFi reconnection...");
+
+        WiFi.disconnect();
+        delay(200);
+        WiFi.reconnect();
+      }
+    }
+  }
+  wasConnected = isConnected;
+}
+
 //////////////////////   WELCOME MESSAGE   //////////////////////
 
 void welcomeMsg() {
@@ -671,59 +754,6 @@ float applyPrecision(float value, uint8_t precision) {
   return value;
 }
 
-// String formatByPrecision(float value, uint8_t precision) {
-
-//   if (precision == 0) {
-//     return String((int)round(value));   // Integer rounding
-//   }
-
-//   if (precision == 1) {
-//     return String(value, 1);
-//   }
-
-//   if (precision == 2) {
-//     return String(value, 2);
-//   }
-
-//   // fallback safety
-//   return String(value, 2);
-// }
-
-//////////////////////   NTC   //////////////////////
-
-// void calculateNTC() {
-
-//   // ----- Average 50 NTC samples -----
-//   float adcSum = 0;
-//   for (int i = 0; i < 50; i++) {
-//     adcSum += analogRead(NTC_PIN);
-//     delay(5);
-//   }
-
-//   float adcValue = adcSum / 50.0;
-
-//   // ----- Convert ADC to voltage -----
-//   float voltage = adcValue * VREF / ADC_RESOLUTION;
-
-//   if (voltage <= 0.001) {
-//     ntcTemp = -100;
-//     return;
-//   }
-
-//   // ----- Calculate NTC resistance -----
-//   float rNTC = FIXED_RESISTOR * (VREF - voltage) / voltage;
-
-//   // ----- Use stored settings instead of constants -----
-//   float tempK = 1.0 / ((1.0 / T0) + (1.0 / settings.betaConstant) * log(rNTC / settings.ntcResistance));
-
-//   ntcTemp = tempK - 273.15;
-
-//   // ----- Apply stored offset -----
-//   ntcTemp += settings.ntcOffset;
-
-//   // ----- Apply decimal precision setting -----
-//   ntcTemp = applyPrecision(ntcTemp, settings.tempPrecision);
-// }
 void calculateNTCFromADC(float adcValue) {
   float voltage = adcValue * VREF / ADC_RESOLUTION;
   if (voltage <= 0.001) {
@@ -756,16 +786,6 @@ void handleNTC() {
 
 //////////////////////   AHT10   //////////////////////
 
-// void calculateAHT() {
-//   sensors_event_t humidityEvent, tempEvent;
-//   if (aht.getEvent(&humidityEvent, &tempEvent)) {
-//     ahtTemp = tempEvent.temperature;
-//     humidity = humidityEvent.relative_humidity;
-//   } else {
-//     ahtTemp = -100;  // Error indicator
-//     humidity = 0;
-//   }
-// }
 void handleAHT() {
   unsigned long currentMillis = millis();
   // Check interval (seconds → milliseconds)
@@ -887,30 +907,6 @@ void handleLUX() {
   // Serial.println(sunlightPercentage);
 }
 
-//////////////////////   BH1750   //////////////////////
-
-void calculateLUX() {
-  luxValue = random(0, 120000);
-  // float rawLux = lightMeter.readLightLevel();
-  // if (rawLux < 0) {
-  //   luxValue = 0;  // Error fallback
-  // } else {
-  //   luxValue = (uint32_t)rawLux;
-  // }
-}
-
-//////////////////////   SUNLIGHT PERCENTAGE   //////////////////////
-
-void calculateSunlightPercentage() {
-  const uint32_t MAX_LUX = 100000;  // Adjust if needed
-
-  if (luxValue >= MAX_LUX) {
-    sunlightPercentage = 100;
-  } else {
-    sunlightPercentage = (uint8_t)((luxValue * 100) / MAX_LUX);
-  }
-}
-
 //////////////////////   NODE RED SHARE   //////////////////////
 
 void sendDataToNodeRed() {
@@ -945,22 +941,6 @@ void sendDataToNodeRed() {
   http.setTimeout(5000);
   http.addHeader("Content-Type", "application/json");
 
-  // // Create JSON payload
-  // String jsonPayload = "{";
-  // jsonPayload += "\"ntcTemp\":" + String(ntcTemp, (int)settings.tempPrecision) + ",";
-  // jsonPayload += "\"ahtTemp\":" + String(ahtTemp, (int)settings.tempPrecision) + ",";
-  // jsonPayload += "\"humidity\":" + String(humidity, (int)settings.humidityPrecision) + ",";
-  // jsonPayload += "\"lux\":" + String(luxValue, 1) + ",";
-  // jsonPayload += "\"sunlight\":" + String(sunlightPercentage, 1);
-  // jsonPayload += "}";
-
-  // Serial.print(F("[Node-RED] Payload: "));
-  // Serial.println(jsonPayload);
-
-  // // Send POST
-  // int httpResponseCode = http.POST(jsonPayload);
-
-
   char jsonPayload[256];
   float safeLux = luxValue;
   float safeSun = sunlightPercentage;
@@ -980,10 +960,6 @@ void sendDataToNodeRed() {
   Serial.print("[Node-RED] Payload: ");
   Serial.println(jsonPayload);
   httpResponseCode = http.POST((uint8_t*)jsonPayload, strlen(jsonPayload));
-
-
-
-
 
   Serial.print(F("[Node-RED] HTTP Response code: "));
   Serial.println(httpResponseCode);
@@ -1297,14 +1273,9 @@ void setup() {
 void loop() {
   handleNTC();
   handleAHT();
-  // calculateNTC();
-  // calculateAHT();
-  // calculateLUX();
-  // calculateSunlightPercentage();
   handleLUX();
   serialOutput();
   displayLCD();
-
+  checkWiFiAndStartServer();
   sendDataToNodeRed();
-  // delay(1000);
 }
