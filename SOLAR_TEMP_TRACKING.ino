@@ -1266,7 +1266,6 @@ void setup() {
   drawCenteredStr(35, "System Ready!", u8g2_font_t0_14_tr);
   u8g2.sendBuffer();
   delay(1500);
-
   u8g2.clearBuffer();
 }
 
