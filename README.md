@@ -3,8 +3,13 @@
 Real-time Solar Monitoring + Web Dashboard + Configurable Node-RED Integration
 Built with ESP32, Async Web Server, and Advanced Sensor Monitoring
 
-📸 Project Preview
-🖥 OLED Display Output
+📸 <b>Project Preview</b>
+
+<p align="center">
+	<img src="display.png" alt="OLED Display Output" width="300" style="margin:10px;"/>
+	<img src="dashboard.png" alt="Web Dashboard" width="300" style="margin:10px;"/>
+	<img src="config.png" alt="Configuration Page" width="300" style="margin:10px;"/>
+</p>
 
 🌐 Web Dashboard (Real-Time)
 
