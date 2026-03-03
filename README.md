@@ -10,22 +10,26 @@ Built with ESP32, Async Web Server, and Advanced Sensor Monitoring
 
 ⚙ Configuration Page
 
-🚀 Features
+---
 
-✅ Real-Time Solar Panel Monitoring
-✅ Temperature Monitoring (NTC + AHT)
-✅ Ambient Light (LUX) Monitoring
-✅ WiFi Signal Strength (% Based)
-✅ Node-RED Data Sharing (Configurable Interval)
-✅ Web-Based Configuration Page
-✅ Fully Async Web Server (Non-Blocking)
-✅ OLED Live Display with Smart UI
-✅ WiFi Signal Bars + Status Icons
-✅ Sunlight Progress Bar
-✅ LUX Increasing/Decreasing Indicator
-✅ 12H / 24H Time Format Support
-✅ EEPROM Settings Storage
-✅ Industrial-Ready Architecture
+## 🚀 Features
+
+<ul>
+	<li>🌞 <b>Real-Time Solar Panel Monitoring</b></li>
+	<li>🌡️ Temperature Monitoring (NTC + AHT)</li>
+	<li>💡 Ambient Light (LUX) Monitoring</li>
+	<li>📶 WiFi Signal Strength (% Based)</li>
+	<li>🔗 Node-RED Data Sharing (Configurable Interval)</li>
+	<li>🛠️ Web-Based Configuration Page</li>
+	<li>⚡ Fully Async Web Server (Non-Blocking)</li>
+	<li>🖥️ OLED Live Display with Smart UI</li>
+	<li>📡 WiFi Signal Bars + Status Icons</li>
+	<li>🌅 Sunlight Progress Bar</li>
+	<li>📈 LUX Increasing/Decreasing Indicator</li>
+	<li>🕒 12H / 24H Time Format Support</li>
+	<li>💾 EEPROM Settings Storage</li>
+	<li>🏭 Industrial-Ready Architecture</li>
+</ul>
 
 📊 Parameters Monitored
 Parameter Sensor Used Purpose
@@ -37,19 +41,19 @@ WiFi Strength Internal RSSI Network stability
 Node-RED Status HTTP Check Data sharing health
 🛠 Hardware Used
 
-ESP32 Development Board
+---
 
-128x64 OLED Display (I2C)
+## 🛠 Hardware Used
 
-NTC Thermistor
-
-AHT Temperature & Humidity Sensor
-
-BH1750 LUX Sensor
-
-Voltage Divider Circuit (for NTC)
-
-Stable 5V/3.3V Power Supply
+<ul>
+	<li>🟦 <b>ESP32 Development Board</b></li>
+	<li>🖥️ 128x64 OLED Display (I2C)</li>
+	<li>🌡️ NTC Thermistor</li>
+	<li>🌬️ AHT Temperature & Humidity Sensor</li>
+	<li>💡 BH1750 LUX Sensor</li>
+	<li>🔋 Voltage Divider Circuit (for NTC)</li>
+	<li>⚡ Stable 5V/3.3V Power Supply</li>
+</ul>
 
 ---
 
@@ -67,42 +71,41 @@ Stable 5V/3.3V Power Supply
 
 > _Modify according to your wiring_
 
-🌐 Web Interface
-🖥 Dashboard
+---
 
-Real-time sensor values
+## 🌐 Web Interface
 
-WiFi strength indicator
+### 🖥 Dashboard
 
-Sunlight progress visualization
+<ul>
+	<li>📊 Real-time sensor values</li>
+	<li>📶 WiFi strength indicator</li>
+	<li>🌅 Sunlight progress visualization</li>
+	<li>💓 Node-RED heartbeat status</li>
+	<li>📈 LUX trend indicator (+/-)</li>
+</ul>
 
-Node-RED heartbeat status
+### ⚙ Configuration Page
 
-LUX trend indicator (+/-)
+<ul>
+	<li>📡 WiFi Settings</li>
+	<li>⏱️ Reading Intervals (Temperature / NTC / LUX)</li>
+	<li>🔗 Node-RED Enable / Disable</li>
+	<li>🔄 Node-RED Data Share Interval</li>
+	<li>🕒 Time Format Selection (12H / 24H)</li>
+	<li>💾 EEPROM Save</li>
+</ul>
 
-⚙ Configuration Page
+---
 
-WiFi Settings
+## 🔄 Node-RED Integration
 
-Reading Intervals (Temperature / NTC / LUX)
-
-Node-RED Enable / Disable
-
-Node-RED Data Share Interval
-
-Time Format Selection (12H / 24H)
-
-EEPROM Save
-
-🔄 Node-RED Integration
-
-Configurable Data Share Interval
-
-HTTP POST based data sending
-
-Timeout protection
-
-Network failure safe handling
+<ul>
+	<li>⏲️ Configurable Data Share Interval</li>
+	<li>📤 HTTP POST based data sending</li>
+	<li>⏱️ Timeout protection</li>
+	<li>📡 Network failure safe handling</li>
+</ul>
 
 🖼 Circuit Diagram
 
@@ -122,17 +125,18 @@ If you want, I can generate a clean professional circuit diagram layout for you.
 
 🧠 System Architecture
 
-Non-blocking Async Web Server
+---
 
-millis() based timing system
+## 🧠 System Architecture
 
-EEPROM persistent settings
-
-Modular sensor handling
-
-WiFi auto reconnect logic
-
-Scalable design
+<ul>
+	<li>⚡ Non-blocking Async Web Server</li>
+	<li>⏲️ <code>millis()</code> based timing system</li>
+	<li>💾 EEPROM persistent settings</li>
+	<li>🧩 Modular sensor handling</li>
+	<li>🔄 WiFi auto reconnect logic</li>
+	<li>📈 Scalable design</li>
+</ul>
 
 📂 Project Structure
 /data
@@ -147,51 +151,57 @@ dashboard.png
 config.png
 🔐 Stability & Safety
 
-HTTP timeout protection
+---
 
-WiFi reconnect logic
+## 🔐 Stability & Safety
 
-Memory-efficient design
-
-Long runtime tested
+<ul>
+	<li>⏱️ HTTP timeout protection</li>
+	<li>🔄 WiFi reconnect logic</li>
+	<li>🧠 Memory-efficient design</li>
+	<li>⏳ Long runtime tested</li>
+</ul>
 
 📈 Future Improvements
 
-Watchdog protection
+---
 
-OTA Firmware Update
+## 📈 Future Improvements
 
-Dust Monitoring Sensor
-
-Cloud Backup Integration
-
-Deep Sleep Power Mode
-
-Data Logging to SD Card
+<ul>
+	<li>🐶 Watchdog protection</li>
+	<li>🛠️ OTA Firmware Update</li>
+	<li>🌫️ Dust Monitoring Sensor</li>
+	<li>☁️ Cloud Backup Integration</li>
+	<li>💤 Deep Sleep Power Mode</li>
+	<li>💾 Data Logging to SD Card</li>
+</ul>
 
 👨‍💻 Developed By
 
-Mrinal Maity
-ESP32 Solar Monitoring System
+**Mrinal Maity**  
+_ESP32 Solar Monitoring System_  
 Made with dedication and engineering passion ❤️
 
 ⭐ Support
 
 If you like this project:
 
-⭐ Star the repository
-
-🍴 Fork it
-
-📢 Share it
+<ul>
+	<li>⭐ <b>Star the repository</b></li>
+	<li>🍴 <b>Fork it</b></li>
+	<li>📢 <b>Share it</b></li>
+</ul>
 
 ---
 
 ## 💎 Extra Professional Touch (Optional Additions)
 
-- GitHub badges (ESP32, Arduino, License)
-- Animated GIF demo
-- Block diagram
-- Feature comparison table
-- Version changelog
-- License section
+<ul>
+	<li>🏷️ GitHub badges (ESP32, Arduino, License)</li>
+	<li>🎞️ Animated GIF demo</li>
+	<li>🗂️ Block diagram</li>
+	<li>📊 Feature comparison table</li>
+	<li>📝 Version changelog</li>
+	<li>📄 License section</li>
+</ul>
