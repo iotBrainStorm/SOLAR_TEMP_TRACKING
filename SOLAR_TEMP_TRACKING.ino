@@ -831,7 +831,7 @@ void handleLUX() {
   }
 
   // ---- EMA Filter ----
-  luxFiltered = (luxFiltered * 0.8f) + (luxValue * 0.2f);
+  luxFiltered = (luxFiltered * 0.6f) + (luxValue * 0.4f);
 
   luxDiff = (long)(luxFiltered - previousLux);
   previousLux = luxFiltered;
