@@ -541,11 +541,20 @@ void setupWebServer() {
     if (request->hasParam("luxMode", true))
       settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
 
-    if (request->hasParam("maxLuxValue", true))
-      settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
+    if (settings.luxPercentageMode == 0) {
+      // AUTO mode → reset calibration
+      settings.maxLuxValue = 0;
+      settings.minLuxValue = 0;
 
-    if (request->hasParam("minLuxValue", true))
-      settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
+      Serial.println("[LUX] AUTO mode selected → Min/Max reset");
+    } else {
+      // MANUAL mode → read values from form
+      if (request->hasParam("maxLuxValue", true))
+        settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
+
+      if (request->hasParam("minLuxValue", true))
+        settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
+    }
 
     if (request->hasParam("luxInterval", true))
       settings.luxInterval = request->getParam("luxInterval", true)->value().toInt();
@@ -845,6 +854,13 @@ void handleLUX() {
     const uint32_t saveInterval = 300000;  // 5 min EEPROM safety
 
     bool updated = false;
+
+    // Initialize min/max on first reading
+    if (settings.maxLuxValue == 0 && settings.minLuxValue == 0) {
+      settings.maxLuxValue = luxFiltered;
+      settings.minLuxValue = luxFiltered;
+      updated = true;
+    }
 
     // Update MAX
     if (luxFiltered > settings.maxLuxValue + threshold) {
