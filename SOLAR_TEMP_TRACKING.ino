@@ -107,18 +107,18 @@ const char MSG_DEVELOPER[] PROGMEM = "developed by M.Maity";
 //////////////////////   DEFAULT SETTINGS   //////////////////////
 
 void setDefaultSettings() {
-  settings.tempPrecision = 2;
-  settings.humidityPrecision = 2;
+  settings.tempPrecision = 1;
+  settings.humidityPrecision = 0;
   settings.ahtInterval = 1;
 
-  settings.ntcResistance = 1000.0;
-  settings.betaConstant = 3950.0;
+  settings.ntcResistance = 10000.0;
+  settings.betaConstant = 3435.0;
   settings.ntcOffset = 0.0;
   settings.ntcInterval = 1;
 
   settings.luxPercentageMode = 0;
-  settings.maxLuxValue = 100000;
-  settings.minLuxValue = 0;
+  settings.maxLuxValue = 100;
+  settings.minLuxValue = 1;
   settings.luxInterval = 1;
 
   settings.enableNodeRed = 0;
@@ -138,18 +138,18 @@ void loadSettings() {
 
   preferences.begin("device", true);  // read-only
 
-  settings.tempPrecision = preferences.getUChar("tPrec", 2);
-  settings.humidityPrecision = preferences.getUChar("hPrec", 2);
+  settings.tempPrecision = preferences.getUChar("tPrec", 1);
+  settings.humidityPrecision = preferences.getUChar("hPrec", 0);
   settings.ahtInterval = preferences.getUInt("ahtInt", 1);
 
-  settings.ntcResistance = preferences.getFloat("ntcR", 1000.0);
-  settings.betaConstant = preferences.getFloat("beta", 3950.0);
+  settings.ntcResistance = preferences.getFloat("ntcR", 10000.0);
+  settings.betaConstant = preferences.getFloat("beta", 3435.0);
   settings.ntcOffset = preferences.getFloat("ntcOff", 0.0);
   settings.ntcInterval = preferences.getUInt("ntcInt", 1);
 
   settings.luxPercentageMode = preferences.getUChar("luxMode", 0);
-  settings.maxLuxValue = preferences.getULong("luxMax", 100000);
-  settings.minLuxValue = preferences.getULong("luxMin", 0);
+  settings.maxLuxValue = preferences.getULong("luxMax", 100);
+  settings.minLuxValue = preferences.getULong("luxMin", 1);
   settings.luxInterval = preferences.getUInt("luxInt", 1);
 
   settings.enableNodeRed = preferences.getUChar("nrEn", 0);
@@ -538,35 +538,36 @@ void setupWebServer() {
 
 
     // -------- LUX --------
-    if (request->hasParam("luxMode", true))
-      settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
 
-    if (request->hasParam("maxLuxValue", true))
-      settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
-
-    if (request->hasParam("minLuxValue", true))
-      settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
-
-    if (request->hasParam("luxInterval", true))
-      settings.luxInterval = request->getParam("luxInterval", true)->value().toInt();
-
-    // uint8_t previousLuxMode = settings.luxPercentageMode;
     // if (request->hasParam("luxMode", true))
     //   settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
 
-    // if (previousLuxMode == 1 && settings.luxPercentageMode == 0) {
-    //   settings.maxLuxValue = 0;
-    //   settings.minLuxValue = UINT32_MAX;
-    //   Serial.println("[LUX] AUTO mode selected → Min/Max reset");
-    // } else {
-    //   if (request->hasParam("maxLuxValue", true))
-    //     settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
-    //   if (request->hasParam("minLuxValue", true))
-    //     settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
-    // }
+    // if (request->hasParam("maxLuxValue", true))
+    //   settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
+
+    // if (request->hasParam("minLuxValue", true))
+    //   settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
 
     // if (request->hasParam("luxInterval", true))
     //   settings.luxInterval = request->getParam("luxInterval", true)->value().toInt();
+
+    uint8_t previousLuxMode = settings.luxPercentageMode;
+    if (request->hasParam("luxMode", true))
+      settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
+
+    if (previousLuxMode == 1 && settings.luxPercentageMode == 0) {
+      settings.maxLuxValue = 0;
+      settings.minLuxValue = 0;
+      Serial.println("[LUX] AUTO mode selected → Min/Max reset");
+    } else {
+      if (request->hasParam("maxLuxValue", true))
+        settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
+      if (request->hasParam("minLuxValue", true))
+        settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
+    }
+
+    if (request->hasParam("luxInterval", true))
+      settings.luxInterval = request->getParam("luxInterval", true)->value().toInt();
 
 
     // -------- NODE RED --------
@@ -863,6 +864,13 @@ void handleLUX() {
     const uint32_t saveInterval = 300000;  // 5 min EEPROM safety
 
     bool updated = false;
+
+    // Initialize min/max on first reading
+    if (settings.maxLuxValue == 0 && settings.minLuxValue == 0) {
+      settings.maxLuxValue = luxFiltered;
+      settings.minLuxValue = luxFiltered;
+      updated = true;
+    }
 
     // Update MAX
     if (luxFiltered > settings.maxLuxValue + threshold) {
@@ -1239,11 +1247,6 @@ void setup() {
   connectToSavedWiFi();
   delay(1000);
 
-  // --- Time Setup ---
-  configDateTime();
-  delay(1000);
-
-
   // --- Server Setup ---
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n==============================");
@@ -1283,6 +1286,10 @@ void setup() {
     u8g2.sendBuffer();
     delay(2000);
   }
+
+  // --- Time Setup ---
+  configDateTime();
+  delay(1000);
 
   // --- Ready ---
   u8g2.clearBuffer();
