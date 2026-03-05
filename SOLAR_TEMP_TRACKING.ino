@@ -541,23 +541,32 @@ void setupWebServer() {
     if (request->hasParam("luxMode", true))
       settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
 
-    if (settings.luxPercentageMode == 0) {
-      // AUTO mode → reset calibration
-      settings.maxLuxValue = 0;
-      settings.minLuxValue = 0;
+    if (request->hasParam("maxLuxValue", true))
+      settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
 
-      Serial.println("[LUX] AUTO mode selected → Min/Max reset");
-    } else {
-      // MANUAL mode → read values from form
-      if (request->hasParam("maxLuxValue", true))
-        settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
-
-      if (request->hasParam("minLuxValue", true))
-        settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
-    }
+    if (request->hasParam("minLuxValue", true))
+      settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
 
     if (request->hasParam("luxInterval", true))
       settings.luxInterval = request->getParam("luxInterval", true)->value().toInt();
+
+    // uint8_t previousLuxMode = settings.luxPercentageMode;
+    // if (request->hasParam("luxMode", true))
+    //   settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
+
+    // if (previousLuxMode == 1 && settings.luxPercentageMode == 0) {
+    //   settings.maxLuxValue = 0;
+    //   settings.minLuxValue = UINT32_MAX;
+    //   Serial.println("[LUX] AUTO mode selected → Min/Max reset");
+    // } else {
+    //   if (request->hasParam("maxLuxValue", true))
+    //     settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
+    //   if (request->hasParam("minLuxValue", true))
+    //     settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
+    // }
+
+    // if (request->hasParam("luxInterval", true))
+    //   settings.luxInterval = request->getParam("luxInterval", true)->value().toInt();
 
 
     // -------- NODE RED --------
@@ -855,13 +864,6 @@ void handleLUX() {
 
     bool updated = false;
 
-    // Initialize min/max on first reading
-    if (settings.maxLuxValue == 0 && settings.minLuxValue == 0) {
-      settings.maxLuxValue = luxFiltered;
-      settings.minLuxValue = luxFiltered;
-      updated = true;
-    }
-
     // Update MAX
     if (luxFiltered > settings.maxLuxValue + threshold) {
       settings.maxLuxValue = (uint32_t)luxFiltered;
@@ -1064,15 +1066,20 @@ void displayLCD() {
   // ================= SENSOR VALUES =================
 
   char ntcStr[20];
-  snprintf(ntcStr, sizeof(ntcStr), "SLR: %.2fC", ntcTemp);
+  char fmtTemp[10];
+  sprintf(fmtTemp, "SLR: %% .%dfC", settings.tempPrecision);
+  snprintf(ntcStr, sizeof(ntcStr), fmtTemp, ntcTemp);
   u8g2.drawStr(0, 12, ntcStr);
 
   char ahtStr[20];
-  snprintf(ahtStr, sizeof(ahtStr), "SRR: %.2fC", ahtTemp);
+  sprintf(fmtTemp, "SRR: %% .%dfC", settings.tempPrecision);
+  snprintf(ahtStr, sizeof(ahtStr), fmtTemp, ahtTemp);
   u8g2.drawStr(0, 24, ahtStr);
 
   char humStr[20];
-  snprintf(humStr, sizeof(humStr), "HUM: %.1f%%", humidity);
+  char fmtHum[10];
+  sprintf(fmtHum, "HUM: %% .%df%%%%", settings.humidityPrecision);
+  snprintf(humStr, sizeof(humStr), fmtHum, humidity);
   u8g2.drawStr(0, 36, humStr);
 
   // Divider line
