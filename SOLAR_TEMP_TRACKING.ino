@@ -19,8 +19,8 @@
 // -- NTC Setup
 #define NTC_PIN 34              // ADC pin
 #define FIXED_RESISTOR 10000.0  // 10k fixed resistor
-#define R0 1000.0               // NTC resistance at 25°C
-#define BETA 3950.0             // 3950 (common value)
+#define R0 10000.0              // NTC resistance at 25°C
+#define BETA 3435.0             // 3950 (common value)
 #define T0 298.15               // 25°C in Kelvin
 #define OFFSET 17.29            // Adjust later (+ or -)
 #define ADC_RESOLUTION 4095.0   // 12 bits (1111 1111 1111)
