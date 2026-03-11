@@ -496,9 +496,6 @@ void setupWebServer() {
   });
 
   server.on("/sensor.json", HTTP_GET, [](AsyncWebServerRequest* request) {
-    // portENTER_CRITICAL(&measureMux);
-    // Measurements current = readings;
-    // portEXIT_CRITICAL(&measureMux);
     StaticJsonDocument<256> doc;
     doc["ntcTemp"] = ntcTemp;
     doc["ahtTemp"] = ahtTemp;
@@ -539,19 +536,6 @@ void setupWebServer() {
 
 
     // -------- LUX --------
-
-    // if (request->hasParam("luxMode", true))
-    //   settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
-
-    // if (request->hasParam("maxLuxValue", true))
-    //   settings.maxLuxValue = request->getParam("maxLuxValue", true)->value().toInt();
-
-    // if (request->hasParam("minLuxValue", true))
-    //   settings.minLuxValue = request->getParam("minLuxValue", true)->value().toInt();
-
-    // if (request->hasParam("luxInterval", true))
-    //   settings.luxInterval = request->getParam("luxInterval", true)->value().toInt();
-
     uint8_t previousLuxMode = settings.luxPercentageMode;
     if (request->hasParam("luxMode", true))
       settings.luxPercentageMode = request->getParam("luxMode", true)->value().toInt();
@@ -688,39 +672,11 @@ void checkWiFiAndStartServer() {
       webServerStarted = true;
     }
 
-    //   // Start Firebase task
-    //   if (fbSettings.enabled && strlen(fbSettings.host) > 0 && firebaseTask == NULL) {
-    //     Serial.println("Starting Firebase task...");
-    //     xTaskCreatePinnedToCore(
-    //       firebaseTaskFunction,
-    //       "FirebaseTask",
-    //       8192,
-    //       NULL,
-    //       1,
-    //       &firebaseTask,
-    //       0);
-    //   }
-
-    //   // Optional: show reconnect success on OLED
-    //   if (!menuActive) {
-    //     displayStatusbar();
-    //   }
-    // }
-
     // ===============================
     // 🔴 WiFi Lost
     // ===============================
     if (!isConnected && wasConnected) {
-
       Serial.println("WiFi disconnected!");
-
-      // // Stop Firebase task
-      // if (firebaseTask != NULL) {
-      //   vTaskDelete(firebaseTask);
-      //   firebaseTask = NULL;
-      //   Serial.println("Firebase task stopped");
-      // }
-
       webServerStarted = false;  // allow restart after reconnection
     }
 
@@ -820,7 +776,7 @@ void handleAHT() {
       ahtTemp = applyPrecision(rawTemp, settings.tempPrecision);
       humidity = applyPrecision(rawHumidity, settings.humidityPrecision);
     } else {
-      ahtTemp = -100;  // Error indicator
+      ahtTemp = 0.0;  // Error indicator
       humidity = 0;
     }
   }
@@ -841,12 +797,6 @@ void handleLUX() {
   } else {
     luxValue = 1;  // fallback value if sensor missing
   }
-
-  // // ---- Fake Readings ----
-  // static float angle = 0;
-  // angle += 0.05;
-  // luxValue = 60000 + 60000 * sin(angle);
-  // if (luxValue < 0) luxValue = 0;
 
   // ---- First Time Filter Init ----
   if (!luxInitialized) {
