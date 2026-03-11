@@ -67,6 +67,7 @@ unsigned long lastAHTReadTime = 0;
 
 // -- Light sensor (LUX) setup
 BH1750 lightMeter;
+bool luxConnected = false;
 unsigned long lastLuxReadTime = 0;
 unsigned long lastLuxSaveTime = 0;
 float luxFiltered = 0;  // EMA filtered value
@@ -776,7 +777,7 @@ float applyPrecision(float value, uint8_t precision) {
 void calculateNTCFromADC(float adcValue) {
   float voltage = adcValue * VREF / ADC_RESOLUTION;
   if (voltage <= 0.001) {
-    ntcTemp = -100;
+    ntcTemp = 0.0;
     return;
   }
   float rNTC = FIXED_RESISTOR * (VREF - voltage) / voltage;
@@ -835,7 +836,11 @@ void handleLUX() {
   lastLuxReadTime = currentMillis;
 
   // ---- Read Sensor ----
-  luxValue = lightMeter.readLightLevel();
+  if (luxConnected) {
+    luxValue = lightMeter.readLightLevel();
+  } else {
+    luxValue = 1;  // fallback value if sensor missing
+  }
 
   // // ---- Fake Readings ----
   // static float angle = 0;
@@ -1229,11 +1234,13 @@ void setup() {
 
   Wire.begin();  // SDA, SCL default for ESP32
   if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+    luxConnected = true;
     u8g2.drawStr(0, 18, "BH1750: OK");
     Serial.println("[SUCCESS] BH1750 detected.");
     Serial.println("[INFO] Mode: Continuous High Resolution");
     Serial.println("==============================\n");
   } else {
+    luxConnected = false;
     u8g2.drawStr(0, 18, "BH1750: ERROR");
     Serial.println("[ERROR] BH1750 not detected!");
     Serial.println("[INFO] Check SDA/SCL wiring.");
